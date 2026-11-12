@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
-<title>Transformacija i vidljivost: 3D i crtež uporedo · nacrtna geometrija</title>
-<meta name="description" content="Interaktivno učenje transformacije (uvođenja novih ravni projekcije) i pravila vidljivosti ivica (bliže/dalje, puna/isprekidana) u nacrtnoj geometriji: 3D prostor i crtež uporedo.">
+<title>Transformacija, rotacija i vidljivost: 3D i crtež uporedo · nacrtna geometrija</title>
+<meta name="description" content="Interaktivno učenje transformacije, rotacije i obaranja ravni (od tačke i duži do kocke i kupe na kosoj ravni) i pravila vidljivosti ivica u nacrtnoj geometriji: 3D prostor i crtež uporedo.">
 <meta name="author" content="dr Poturak Semir">
 <style>
   :root{--z:#ea580c;--s:#db2777;--p1:#64748b;--p2:#2563eb;--p3:#0d9488;--p4:#7c3aed;--hi:#d97706;--ink:#0f172a;--mut:#64748b;--line:#e2e8f0}
@@ -59,9 +59,14 @@
   #mNav{display:none}
   html{-webkit-text-size-adjust:100%} button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
   #c2{touch-action:manipulation}
+  button.sec{font-weight:650;border-color:#94a3b8}
+  button.sec.on{background:#0f766e;border-color:#0f766e;color:#fff}
+  .ladder{display:flex;flex-wrap:wrap;gap:4px;margin:5px 0;padding:6px 9px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:7px;font-size:12px;align-items:center}
+  .ladder button{padding:2px 7px;font-size:11.8px;border-radius:999px}
+  .ladder button.on{background:#0f766e;border-color:#0f766e;color:#fff}
   @media(max-width:900px){main,.bottom{grid-template-columns:1fr}canvas{height:46vh}}
   @media(pointer:coarse){
-    button{min-height:38px} #gAct button,#gEdge button{min-height:34px;min-width:34px;padding:4px 8px;font-size:13px}
+    button{min-height:38px} #gAct button,#gEdge button,.ladder button{min-height:34px;min-width:34px;padding:4px 8px;font-size:13px}
     input[type=range]{height:30px} #nKey{display:none}
   }
   /* telefon, uspravno: koraci → objašnjenje → 3D → crtež → klizači; navigacija prikovana dole */
@@ -71,7 +76,7 @@
     header{padding:6px 10px;gap:6px;order:0;width:100%;min-width:0} h1{font-size:15px;width:100%;margin:0}
     header .grp,.steps{flex-wrap:nowrap;overflow-x:auto;max-width:100%;min-width:0;scrollbar-width:none;-webkit-overflow-scrolling:touch}
     header .grp::-webkit-scrollbar,.steps::-webkit-scrollbar{display:none}
-    header #gZad{overflow:visible;max-width:none}
+    header #gZad,header #gZadR{overflow:visible;max-width:none}
     header button,.steps button,header .grp>span{flex:none;white-space:nowrap}
     .steps{order:1;padding:6px 10px;width:100%} .steps .nav{display:none}
     main,.bottom{display:contents}
@@ -101,12 +106,24 @@
 </head>
 <body>
 <header>
-  <h1>Transformacija — 3D i crtež uporedo</h1>
+  <h1 id="hMain">Transformacija — 3D i crtež uporedo</h1>
+  <div class="grp" id="gSec"><span>Oblast</span>
+    <button class="sec" data-sec="tr">Transformacija</button>
+    <button class="sec" data-sec="rot">Rotacija · 1→5</button>
+  </div>
   <div class="grp" id="gObj"><span>Osnove</span>
     <button data-obj="tacka">Tačka</button><button data-obj="duz">Duž</button><button data-obj="piramida">Piramida</button>
     <span style="margin-left:10px">Zadaci</span><span id="gZad" class="grp"></span></div>
-  <div class="grp" id="gBase"><span>Lanac</span><button data-base="1">1→3→4</button><button data-base="2">2→3→4</button></div>
-  <div class="grp"><button class="go" id="bFold">▶ Obori ravni u crtež</button><button id="bView">Vrati pogled</button><button id="bList">Prikaži list</button></div>
+  <div class="grp" id="gObjR" style="display:none"><span>Od lakšeg</span>
+    <button data-obj="rot_tacka">1 · Tačka</button>
+    <button data-obj="rot_duz">2 · Duž</button>
+    <button data-obj="rot_ravan">3 · Ravan (obaranje)</button>
+    <span style="margin-left:8px">Ispitni</span><span id="gZadR" class="grp">
+      <button data-obj="r1">4 · R1 Kocka</button>
+      <button data-obj="r2">5 · R2 Kupa</button>
+    </span></div>
+  <div class="grp" id="gBase"><span id="lBase">Lanac</span><button data-base="1" id="bBase1">1→3→4</button><button data-base="2" id="bBase2">2→3→4</button></div>
+  <div class="grp"><button class="am" id="bRot3" style="display:none">↻ Okreni u 3D</button><button class="go" id="bFold">▶ Obori ravni u crtež</button><button id="bView">Vrati pogled</button><button id="bList">Prikaži list</button></div>
 </header>
 <div class="steps" id="gStep"></div>
 
@@ -137,13 +154,17 @@
     <div class="grp" id="gVPl" style="margin-bottom:6px;display:none"></div>
     <div class="grp" id="gEdge" style="margin-bottom:6px;display:none"></div>
     <div class="sl"><label>Obaranje ravni</label><input type="range" id="sF" min="0" max="1" step="0.005" value="0"><output id="oF"></output></div>
+    <div class="sl" id="slRot" style="display:none"><label id="lRot">Rotacija u 3D</label><input type="range" id="sRot" min="0" max="1" step="0.005" value="1"><output id="oRot"></output></div>
     <div id="gXYZ">
-    <div class="sl"><label>x (levo–desno)</label><input type="range" id="sX" min="1" max="4.5" step="0.05"><output id="oX"></output></div>
-    <div class="sl"><label>y (ispred π2)</label><input type="range" id="sY" min="0.5" max="4.5" step="0.05"><output id="oY"></output></div>
-    <div class="sl"><label>z (visina iznad π1)</label><input type="range" id="sZ" min="0.5" max="4.5" step="0.05"><output id="oZ"></output></div>
+    <div class="sl"><label id="lX">x (levo–desno)</label><input type="range" id="sX" min="1" max="4.5" step="0.05"><output id="oX"></output></div>
+    <div class="sl"><label id="lY">y (ispred π2)</label><input type="range" id="sY" min="0.5" max="4.5" step="0.05"><output id="oY"></output></div>
+    <div class="sl"><label id="lZ">z (visina iznad π1)</label><input type="range" id="sZ" min="0.5" max="4.5" step="0.05"><output id="oZ"></output></div>
     </div>
+    <div class="sl" id="slPhi" style="display:none"><label>ugao rotacije φ</label><input type="range" id="sPhi" min="-175" max="175" step="1" value="115"><output id="oPhi"></output></div>
+    <div id="gAxes">
     <div class="sl"><label id="lT">ugao ose 1x3</label><input type="range" id="sT" min="-90" max="180" step="1"><output id="oT"></output></div>
     <div class="sl"><label id="lP">ugao ose 3x4</label><input type="range" id="sP" min="-89" max="90" step="1"><output id="oP"></output></div>
+    </div>
     <div class="grp" id="gPre" style="margin-top:8px">
       <button id="bPar">π3 ∥ duž → prava veličina</button>
       <button id="bPerp">π4 ⟂ duž → duž kao tačka</button>
@@ -432,6 +453,102 @@ function setupTask(z,P){
 }
 //TASKS-END
 
+//ROT-BEGIN
+const HP=Math.PI/2, RAD=Math.PI/180, PR=n=>n>0?'′'.repeat(n):'';
+// 1) Rotacija tacke P oko ose upravne na π1 (ax=1, kroz [ox,oy,0]) ili upravne na π2 (ax=2, kroz [ox,0,oz])
+function rotPt(P,ax,O,phi){
+  if(ax===1){
+    const dx=P[0]-O[0],dy=P[1]-O[1],c=Math.cos(phi),s=Math.sin(phi);
+    return [O[0]+dx*c+dy*s, O[1]+dy*c-dx*s, P[2]];
+  }
+  const dx=P[0]-O[0],dz=P[2]-O[2],c=Math.cos(phi),s=Math.sin(phi);
+  return [O[0]+dx*c-dz*s, P[1], O[2]+dx*s+dz*c];
+}
+// 2) Dvoetapna rotacija opste duzi AB: 1. u polozaj paralelan ravni (prava velicina + nagibni ugao), 2. u polozaj upravan na ravan (tacka)
+function rotSegData(A,B,ax){
+  const dAB=Math.hypot(...sub(B,A)), L=Math.min(2.4,dAB*0.68), fL=L/Math.max(1e-9,dAB);
+  if(ax===1){
+    const dx=B[0]-A[0],dy=B[1]-A[1],r1=Math.hypot(dx,dy),phi1=Math.atan2(dy,dx),B1=rotPt(B,1,A,phi1);
+    const alpha=Math.atan2(Math.abs(B[2]-A[2]),r1);
+    const phi2=HP-Math.atan2(B1[2]-A[2],B1[0]-A[0]), B2=rotPt(B1,2,A,phi2);
+    return {A,B,B1,B2,r1,dAB,phi1,phi2,ang:alpha,angSym:'α',angTo:'π1',parPl:'π2',ptPl:'π1',L,M:lerp3(A,B,fL),M1:lerp3(A,B1,fL)};
+  }
+  const dx=B[0]-A[0],dz=B[2]-A[2],r1=Math.hypot(dx,dz),phi1=-Math.atan2(dz,dx),B1=rotPt(B,2,A,phi1);
+  const beta=Math.atan2(Math.abs(B[1]-A[1]),r1);
+  const phi2=Math.atan2(B1[1]-A[1],B1[0]-A[0])-HP, B2=rotPt(B1,1,A,phi2);
+  return {A,B,B1,B2,r1,dAB,phi1,phi2,ang:beta,angSym:'β',angTo:'π2',parPl:'π1',ptPl:'π2',L,M:lerp3(A,B,fL),M1:lerp3(A,B1,fL)};
+}
+// 3) Obaranje (rotacija) kose ravni β(xb; yb; zb) oko prvog traga t1 u ravan π1
+function mkPlane(xb,yb,zb){
+  const Xb=[xb,0,0],Yb=[0,yb,0],Zb=[0,0,zb], n=unit([1/xb,1/yb,1/zb]);
+  const eh=unit(sub(Yb,Xb)), uOut=unit([1/xb,1/yb,0]);
+  let ep=unit(cross(n,eh)); if(ep[2]<0)ep=mul(ep,-1);
+  const theta=Math.atan2(ep[2],-dot(ep,uOut));
+  const fromUV=(s,xi)=>add(add(Xb,mul(eh,s)),mul(ep,xi));
+  const toUV=P=>{const v=sub(P,Xb),s=dot(v,eh),F=add(Xb,mul(eh,s));return {s,xi:dot(sub(P,F),ep),F};};
+  const rot3D=(P,f)=>{
+    const {F,xi}=toUV(P), ang=theta+f*(Math.PI-theta);
+    return add(F,mul(add(mul(uOut,-Math.cos(ang)),[0,0,Math.sin(ang)]),xi));
+  };
+  const rabat2D=P=>{const {F,xi}=toUV(P);return [F[0]+xi*uOut[0],F[1]+xi*uOut[1]];};
+  const horizHit=P=>[xb*(1-P[2]/zb),0,P[2]];
+  return {xb,yb,zb,Xb,Yb,Zb,n,eh,uOut,ep,theta,fromUV,toUV,rot3D,rabat2D,horizHit};
+}
+// 4) Egzaktne konturne izvodnice i vidljivost luka baze uspravne kupe za proizvoljan smer pogleda v
+function coneVis(S,r,h,n,e1,e2,v){
+  const a=h*dot(e1,v),b=h*dot(e2,v),c=r*dot(n,v),R=Math.hypot(a,b),baseBack=dot(n,v)>1e-9,gens=[];
+  if(R>1e-9&&Math.abs(c)<R-1e-7){
+    const phi=Math.atan2(b,a),d=Math.acos(Math.max(-1,Math.min(1,-c/R)));
+    for(const th of [phi+d,phi-d]){const u=lin(e1,e2,Math.cos(th),Math.sin(th));gens.push({th,pt:add(S,mul(u,r))});}
+  }
+  const hiddenTh=th=>baseBack&&(h*dot(lin(e1,e2,Math.cos(th),Math.sin(th)),v)+c<0);
+  return {gens,hiddenTh,baseBack};
+}
+// 5) Ispitni zadaci R1 (kocka na ravni β(7;5;6)) i R2 (uspravna kupa na ravni β(12;7;7))
+function buildR1(){
+  const pl=mkPlane(7,5,6), a=3.5, A=[4,0,6*(1-4/7)];
+  // B lezi na t1: [7(1-t), 5t, 0], |AB|=3.5, prva oktanta (blize y-osi)
+  const aQ=74,bQ=-42,cQ=9+A[2]*A[2]-a*a, t=(-bQ+Math.sqrt(bQ*bQ-4*aQ*cQ))/(2*aQ);
+  const B=[7*(1-t),5*t,0], uAB=unit(sub(B,A)), uAD=cross(pl.n,uAB);
+  const D=add(A,mul(uAD,a)), C=add(B,mul(uAD,a)), up=mul(pl.n,a);
+  const A1=add(A,up),B1=add(B,up),C1=add(C,up),D1=add(D,up);
+  const pts=[A,B,C,D,A1,B1,C1,D1], lab=['A','B','C','D','A1','B1','C1','D1'];
+  const edges=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  const hull=[[0,3,2,1],[4,5,6,7],[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]];
+  const S={base:1,A:[-1.3,-1.6],th:Math.atan2(-7,5),B:[0,0],ps:0,f3:1,f4:1}; norm(S,pts);
+  return {pl,a,pts,lab,edges,hull,S};
+}
+function buildR2(){
+  const pl=mkPlane(12,7,7), r=3.5, h=8;
+  const u1=pl.eh, u2=unit(sub(pl.Zb,pl.Xb)), alpha=Math.acos(dot(u1,u2));
+  const S0=add(pl.Xb,mul(unit(add(u1,u2)),r/Math.sin(alpha/2)));
+  const e1=u1, e2=unit(cross(pl.n,e1)); // e1 || t1 (od C ka A), e2 perp t1 ka gore (od B ka D)
+  const A=add(S0,mul(e1,r)), C=add(S0,mul(e1,-r)), D=add(S0,mul(e2,r)), B=add(S0,mul(e2,-r));
+  const T2=add(pl.Xb,mul(u2,dot(sub(S0,pl.Xb),u2))); // tacka dodira sa t2
+  const V=add(S0,mul(pl.n,h)), P=add(S0,mul(pl.n,9.6));
+  const rSP=Math.hypot(P[0]-S0[0],P[1]-S0[1]), P0=[S0[0]+rSP,S0[1],P[2]], V0=lerp3(S0,P0,h/9.6);
+  const K=[12*(1-B[0]*0),0,0]; // presek padnice BD sa t2 (y=0): S0 + lam*e2 => y=0
+  const lamK=-S0[1]/e2[1], Kp=add(S0,mul(e2,lamK));
+  const pts=[S0,A,B,C,D,V,P], lab=['S','A','B','C','D','V','P'];
+  const S={base:1,A:[-1.5,-2.5],th:Math.atan2(-12,7),B:[0,0],ps:0,f3:1,f4:1}; norm(S,pts);
+  return {pl,r,h,S0,A,B,C,D,T2,V,P,P0,V0,Kp,e1,e2,pts,lab,S};
+}
+const R1_DATA=buildR1(), R2_DATA=buildR2();
+const ROT_ORDER=['rot_tacka','rot_duz','rot_ravan','r1','r2'];
+const ROT_META={
+  rot_tacka:{lvl:1,kratko:'1 · Tačka',ime:'Rotacija 1 · Tačka (kružni luk i putanja ⊥ osi)',steps:['zad','put','luk','proj'],
+    nm:{zad:'Zadato i osa',put:'Putanja ⊥ osi',luk:'Kružni luk',proj:'Nova projekcija'},def:[4.1,3.1,2.8]},
+  rot_duz:{lvl:2,kratko:'2 · Duž',ime:'Rotacija 2 · Duž (prava veličina, nagib i tačka)',steps:['zad','osa1','pv','odmer','osa2','tacka'],
+    nm:{zad:'Zadato',osa1:'Osa o1 kroz A',pv:'1. rot · prava vel.',odmer:'Odmeravanje L',osa2:'Osa o2 kroz A',tacka:'2. rot · kao tačka'},def:[4.6,1.3,1.0]},
+  rot_ravan:{lvl:3,kratko:'3 · Ravan',ime:'Rotacija 3 · Obaranje ravni β oko traga t1',steps:['zad','trag0','lik0','vrati1','vrati2'],
+    nm:{zad:'Ravan β(x;y;z)',trag0:'Obaranje (t2)0',lik0:'Prava vel. u β0',vrati1:'Vraćanje u π1',vrati2:'Vraćanje u π2'},def:[9,5.8,5.5]},
+  r1:{lvl:4,kratko:'4 · R1 Kocka',ime:'R1 · Kocka na kosoj ravni β(7; 5; 6)',steps:['zad','obori','kvadrat','baza','visina','gornja','vid'],
+    nm:{zad:'Zadato',obori:'Obaranje β → A0',kvadrat:'Kvadrat u β0',baza:'Baza ABCD',visina:'Visina a=3,5 (π3)',gornja:'Gornja baza',vid:'Vidljivost'},def:[0,0,0]},
+  r2:{lvl:5,kratko:'5 · R2 Kupa',ime:'R2 · Uspravna kupa na ravni β(12; 7; 7)',steps:['zad','krug0','elipse','normala','rotsp','pi3','kontura'],
+    nm:{zad:'Zadato',krug0:'Krug baze u β0',elipse:'Elipse u π1 i π2',normala:'Normala kroz S',rotsp:'Rotacija SP (h=8)',pi3:'Provera u π3',kontura:'Kontura i luk'},def:[0,0,0]}
+};
+//ROT-END
+
 const SIMPLE={
   tacka:{ime:'Tačka',pts:[[0,0,0]],edges:[],def:[3.5,2.5,3.5]},
   duz:{ime:'Duž',pts:[[0,0,0],[-1,2,-2]],edges:[[0,1]],def:[3.5,1.5,3.5]},
@@ -439,28 +556,70 @@ const SIMPLE={
             hull:[[0,3,2,1],[0,1,4],[1,2,4],[2,3,4],[3,0,4]],def:[1.8,1,0.8]}
 };
 const COL={p1:'#64748b',p2:'#2563eb',p3:'#0d9488',p4:'#7c3aed',z:'#ea580c',s:'#db2777',hi:'#d97706',ink:'#0f172a',g:'#94a3b8'};
-const HP=Math.PI/2, RAD=Math.PI/180, PR=n=>'′'.repeat(n);
 const STEPS=['zad','osa3','ord3','pren3','spoj3','osa4','ord4','pren4','spoj4'];
-const st={O:null,k:0,f:0,off:[0,0,0],act:0,eAct:null,vpl:0,yaw:-0.6,pitch:0.42,zoom:1,box:null,base:1,S:null,xf:null,list:false,
+const st={sec:'tr',O:null,k:0,f:0,rot:1,phi:115,off:[0,0,0],act:0,eAct:null,vpl:0,yaw:-0.6,pitch:0.42,zoom:1,box:null,base:1,S:null,xf:null,list:false,
   quiz:{on:false,done:new Set(),msg:'',miss:null},
   vquiz:{on:false,done:new Set(),msg:''}};
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)), ss=t=>t*t*(3-2*t);
+const isRot=()=>st.sec==='rot';
 
+function mkRotTriangle(off){
+  const pl=mkPlane(off[0],off[1],off[2]), side=2.8, R=side/Math.sqrt(3);
+  const cS=0.52*Math.hypot(off[0],off[1]), cXi=2.15;
+  const P=[0,1,2].map(i=>{const a=-HP+i*2*Math.PI/3+0.18; return pl.fromUV(cS+R*Math.cos(a),cXi+R*Math.sin(a));});
+  return {pl,side,P};
+}
 function mkObj(name){
+  if(ROT_META[name]){
+    const m=ROT_META[name];
+    if(name==='rot_tacka')return {name,rot:m,ime:m.ime,pts:[[0,0,0]],lab:['A'],edges:[],def:m.def,body:null,hull:null,task:null};
+    if(name==='rot_duz')return {name,rot:m,ime:m.ime,pts:[[0,0,0],[-2.4,2.2,2.5]],lab:['A','B'],edges:[[0,1]],def:m.def,body:null,hull:null,task:null};
+    if(name==='rot_ravan'){const t=mkRotTriangle(m.def); return {name,rot:m,ime:m.ime,pts:t.P,lab:['A','B','C'],edges:[[0,1],[1,2],[2,0]],def:m.def,body:null,hull:null,task:null};}
+    if(name==='r1')return {name,rot:m,ime:m.ime,pts:R1_DATA.pts,lab:R1_DATA.lab,edges:R1_DATA.edges,def:[0,0,0],body:null,hull:R1_DATA.hull,task:{ime:m.ime,base:1,list:[]}};
+    if(name==='r2')return {name,rot:m,ime:m.ime,pts:R2_DATA.pts,lab:R2_DATA.lab,edges:[],def:[0,0,0],body:null,hull:null,task:{ime:m.ime,base:1,list:[]}};
+  }
   if(SIMPLE[name]){const o=SIMPLE[name];return {name,ime:o.ime,pts:o.pts,lab:o.pts.map((_,i)=>''+(i+1)),edges:o.edges,def:o.def,body:null,hull:o.hull||null,task:null};}
   const z=ZAD[name],ids=Object.keys(z.V).map(Number).sort((a,b)=>a-b),ix={}; ids.forEach((id,i)=>ix[id]=i);
   return {name,ime:z.ime,pts:ids.map(id=>z.V[id]),lab:ids.map(String),edges:z.E.map(([a,b])=>[ix[a],ix[b]]),def:[0,0,0],body:z.body,hull:null,task:z};
 }
-const pts=()=>st.O.pts.map(p=>add(p,st.off));
+const pts=()=>{
+  if(st.O.name==='rot_ravan')return mkRotTriangle(st.off).P;
+  if(st.O.name==='r1'||st.O.name==='r2')return st.O.pts;
+  return st.O.pts.map(p=>add(p,st.off));
+};
 const bodyOf=()=>st.O.hull?mkHull(pts(),st.O.hull):st.O.body;
-const stepList=()=>st.O.edges.length?STEPS:STEPS.filter(s=>!s.startsWith('spoj'));
+const stepList=()=>st.O.rot?st.O.rot.steps:(st.O.edges.length?STEPS:STEPS.filter(s=>!s.startsWith('spoj')));
 const stepId=()=>stepList()[st.k];
-const visPlane=()=>{const B=bodyOf(); if(!B)return 0; const id=stepId(); return id==='spoj3'?3:id==='spoj4'?4:id==='zad'?st.vpl:0;};
+const visPlane=()=>{
+  if(st.O.name==='r1'){const id=stepId(); return id==='vid'?(st.vpl||1):id==='zad'?st.vpl:0;}
+  if(st.O.name==='r2')return stepId()==='kontura'?(st.vpl||1):0;
+  const B=bodyOf(); if(!B)return 0; const id=stepId(); return id==='spoj3'?3:id==='spoj4'?4:id==='zad'?st.vpl:0;
+};
 function flagsOf(id){const i=STEPS.indexOf(id);return {n3:i>=1,ord3:i>=2,pt3:i>=3,ed3:i>=4,n4:i>=5,ord4:i>=6,pt4:i>=7,ed4:i>=8,only3:i===2,only4:i===6,qz:0,vqz:0};}
 const FULL=flagsOf('spoj4');
-function flags(){const f=flagsOf(stepId()); if(st.quiz.on)f.qz=quizPlane(); if(st.vquiz.on)f.vqz=visPlane(); return f;}
-const quizPlane=()=>stepId()==='pren3'?3:stepId()==='pren4'?4:0;
+function flags(){
+  if(isRot()){
+    const id=stepId(), n3=(st.O.name==='r1'&&(id==='visina'||id==='gornja'||id==='vid'))||(st.O.name==='r2'&&(id==='pi3'||id==='kontura'));
+    return {n3,n4:false,qz:0,vqz:st.vquiz.on?visPlane():0};
+  }
+  const f=flagsOf(stepId()); if(st.quiz.on)f.qz=quizPlane(); if(st.vquiz.on)f.vqz=visPlane(); return f;
+}
+const rotQuizSpec=()=>{
+  if(!isRot())return null;
+  if(st.O.name==='rot_tacka'&&stepId()==='proj'){
+    const P=pts()[0], O=st.base===1?[2.4,2.2,0]:[2.4,0,2.3], P1=rotPt(P,st.base,O,st.phi*RAD);
+    return st.base===1?{tgt:[P1[0],P1[2]],lbl:'A₁″',hint:'na preseku ordinale iz A₁′ i prave z = const (∥ 1x2)'}
+                      :{tgt:[P1[0],-P1[1]],lbl:'A₁′',hint:'na preseku ordinale iz A₁″ i prave y = const (∥ 1x2)'};
+  }
+  if(st.O.name==='rot_duz'&&stepId()==='pv'){
+    const [A,B]=pts(), D=rotSegData(A,B,st.base);
+    return st.base===1?{tgt:[D.B1[0],D.B1[2]],lbl:'B₁″',hint:'iznad zarotiranog B₁′ na istoj visini z kao B″'}
+                      :{tgt:[D.B1[0],-D.B1[1]],lbl:'B₁′',hint:'ispod zarotiranog B₁″ na istoj dubini y kao B′'};
+  }
+  return null;
+};
+const quizPlane=()=>isRot()?(rotQuizSpec()?9:0):(stepId()==='pren3'?3:stepId()==='pren4'?4:0);
 function resetQuiz(){st.quiz={on:false,done:new Set(),msg:'',miss:null}; st.vquiz={on:false,done:new Set(),msg:''};}
 function pickDefaultEdge(){
   const vp=visPlane(), B=bodyOf(); if(!vp||!B){st.eAct=null;return;}
@@ -474,10 +633,17 @@ function defaultS(base){
   return base===2?{base:2,A:[7,2.5],th:-75*RAD,B:[0,6.8],ps:-10*RAD}:{base:1,A:[7,-2.5],th:75*RAD,B:[0,6.8],ps:-10*RAD};
 }
 function resetObj(name){
-  st.O=mkObj(name); st.off=st.O.def.slice(); st.act=0; st.eAct=null; st.vpl=0; st.box=null; st.cam=null; st.visKey=''; resetQuiz();
-  if(st.O.task){st.S=setupTask(st.O.task,pts());st.base=st.S.base;} else st.S=defaultS(st.base);
+  st.sec=ROT_META[name]?'rot':'tr';
+  st.O=mkObj(name); st.off=st.O.def.slice(); st.act=0; st.eAct=null; st.vpl=0; st.rot=1; st.box=null; st.cam=null; st.visKey=''; resetQuiz();
+  if(name==='r1')st.S={...R1_DATA.S,A:R1_DATA.S.A.slice(),B:R1_DATA.S.B.slice()};
+  else if(name==='r2')st.S={...R2_DATA.S,A:R2_DATA.S.A.slice(),B:R2_DATA.S.B.slice()};
+  else if(st.O.rot)st.S=defaultS(1);
+  else if(st.O.task){st.S=setupTask(st.O.task,pts());st.base=st.S.base;}
+  else st.S=defaultS(st.base);
   st.k=Math.min(st.k,stepList().length-1);
-  if(visPlane())pickDefaultEdge();
+  if(name==='r1'&&stepId()==='vid')st.vpl=1;
+  if(name==='r2'&&stepId()==='kontura')st.vpl=1;
+  if(visPlane()&&bodyOf())pickDefaultEdge();
 }
 function angles(fl){
   const ph=[]; if(fl.n4)ph.push('c'); if(fl.n3)ph.push('b'); ph.push('a');
@@ -572,11 +738,415 @@ function buildScene(a,b,c,space,fl,V,camV){
   return sc;
 }
 
+function buildRotScene(a,b,space,id,V,camV,camDir){
+  const S=st.S, F=frames(S,a,b,0), O=st.O, nm=O.name, sl=O.rot.steps, si=sl.indexOf(id);
+  const sc={quads:[],L0:[],L1:[],L2:[],L3:[],dots:[],texts:[],segs2:[]};
+  const P=pts(), many=P.length>5, vp=visPlane(), flat2=a>1.35;
+  const P1=(x,y)=>F.pi1(x,-y), P2=(x,z)=>F.pi2(x,z);
+  const L=(lay,p,q,col,w=1.5,dash=null,al=1)=>sc[lay].push({p,q,col,w,dash,al});
+  const PL=(lay,arr,col,w=1.8,dash=null,al=1)=>{if(arr.length>1)sc[lay].push({pts:arr,col,w,dash,al});};
+  const ARC=(lay,fn,t0,t1,col,w=1.8,dash=null,al=1,n=56)=>{const arr=[];for(let i=0;i<=n;i++)arr.push(fn(t0+(t1-t0)*(i/n)));PL(lay,arr,col,w,dash,al);};
+  const Dt=(p,lbl,tag,col,on=false,al=1)=>sc.dots.push({p,num:lbl,tag,col,r:on?4.5:(many?2.6:3.3),al,on});
+  const Tx=(p,t,col,dx=6,dy=-5)=>sc.texts.push({p,t,col,dx,dy});
+  const addPlanes=(u0,u1,y1,z1,hasOrigin,n3)=>{
+    sc.quads.push({pts:[P2(u0,0),P2(u1,0),P2(u1,z1),P2(u0,z1)],col:COL.p2,name:'π2'});
+    sc.quads.push({pts:[P1(u0,0),P1(u1,0),P1(u1,y1),P1(u0,y1)],col:COL.p1,name:'π1'});
+    L('L3',P2(u0,0),P2(u1,0),COL.ink,2.1); Tx(P2(u1,0),'x (1x2)',COL.ink,-34,-8);
+    if(hasOrigin){
+      L('L1',P2(0,0),P2(0,z1),COL.ink,1.3); Tx(P2(0,z1),'z',COL.ink,6,4);
+      L('L1',P1(0,0),P1(0,y1),COL.ink,1.3); Tx(P1(0,y1),'y',COL.ink,6,10);
+      Tx(P2(0,0),'O',COL.ink,-14,-6);
+    }
+    if(n3){
+      const C=P.map(p=>coords(S,p)), t0=Math.min(...C.map(k=>k.t))-1.4, t1=Math.max(...C.map(k=>k.t))+1.4, H1=Math.max(...C.map(k=>k.h))+1.2;
+      sc.quads.push({pts:[F.pi3(t0,0),F.pi3(t1,0),F.pi3(t1,H1),F.pi3(t0,H1)],col:COL.p3,name:'π3'});
+      L('L3',F.pi3(t0,0),F.pi3(t1,0),COL.ink,2); Tx(F.pi3(t0,0),'1x3',COL.p3,-8,-6);
+    }
+  };
+  const drawPlaneTraces=(pl,siRabat,showArc)=>{
+    L('L2',P1(pl.xb,0),P1(0,pl.yb),COL.p3,2.1); Tx(P1(0,pl.yb*.86),'t1',COL.p3,-18,8);
+    L('L2',P2(pl.xb,0),P2(0,pl.zb),COL.p2,2.1); Tx(P2(0,pl.zb*.88),'t2',COL.p2,7,-4);
+    Dt(P2(pl.xb,0),'1X2',-1,COL.ink,false,.9);
+    if(space>0){
+      sc.quads.push({pts:[pl.Xb,pl.Yb,pl.Zb,pl.Xb],col:COL.p3,name:'β'});
+      if(siRabat&&st.rot>0.01&&st.rot<0.999)sc.quads.push({pts:[pl.Xb,pl.Yb,pl.rot3D(pl.Zb,st.rot),pl.Xb],col:COL.z,name:'βrot'});
+    }
+    if(siRabat){
+      const xp=pl.xb-Math.min(2.1,pl.xb*.28), Hp=[xp,0,pl.zb*(1-xp/pl.xb)], hp0=pl.rabat2D(Hp), Z0=pl.rabat2D(pl.Zb);
+      L('L2',P1(pl.xb,0),P1(Z0[0],Z0[1]),COL.z,1.9,[8,4,2,4],.95);
+      Tx(P1(Z0[0],Z0[1]),'(t2)0',COL.z,7,4);
+      if(showArc){
+        const uv=pl.toUV(Hp);
+        L('L0',P2(xp,0),P2(xp,Hp[2]),COL.g,1.1,[3,3]);
+        L('L0',P1(xp,0),P1(hp0[0],hp0[1]),COL.z,1.2,[4,3]);
+        Dt(P2(xp,Hp[2]),'1″',-1,COL.p2); Dt(P1(xp,0),'1′',-1,COL.p1); Dt(P1(hp0[0],hp0[1]),'1₀',-1,COL.z);
+        if(flat2){
+          const R=Math.hypot(xp-pl.xb,Hp[2]), a0=Math.atan2(Hp[2],xp-pl.xb), a1=Math.atan2(-hp0[1],hp0[0]-pl.xb);
+          let tEnd=a1; while(tEnd>a0)tEnd-=2*Math.PI; if(a0-tEnd>Math.PI*1.35)tEnd+=2*Math.PI;
+          ARC('L1',t=>[pl.xb+R*Math.cos(t),0,R*Math.sin(t)],a0,tEnd,COL.z,1.5,[4,3],.85,40);
+        }
+        if(space>0)ARC('L3',t=>pl.rot3D(Hp,t),0,st.rot,COL.z,2,[4,3],space,32);
+      }
+    }
+  };
+
+  if(nm==='rot_tacka'){
+    const A=P[0], ax=st.base, Oax=ax===1?[2.4,2.2,0]:[2.4,0,2.3], phi=st.phi*RAD;
+    const Aend=rotPt(A,ax,Oax,phi), Acur=rotPt(A,ax,Oax,phi*st.rot);
+    const R=ax===1?Math.hypot(A[0]-Oax[0],A[1]-Oax[1]):Math.hypot(A[0]-Oax[0],A[2]-Oax[2]);
+    addPlanes(-0.4,7.4,6.2,6.2,false,false);
+    if(ax===1){
+      L('L2',P2(Oax[0],0),P2(Oax[0],5.7),COL.p4,1.8,[7,3,2,3]); Tx(P2(Oax[0],5.5),'o″',COL.p4,6,2);
+      Dt(P1(Oax[0],Oax[1]),'o′',-1,COL.p4,true);
+      if(space>0){L('L2',[Oax[0],Oax[1],0],[Oax[0],Oax[1],5.7],COL.p4,2.2,[7,3,2,3],space);Tx([Oax[0],Oax[1],5.6],'o',COL.p4,6,0);}
+    }else{
+      L('L2',P1(Oax[0],0),P1(Oax[0],5.7),COL.p4,1.8,[7,3,2,3]); Tx(P1(Oax[0],5.5),'o′',COL.p4,6,8);
+      Dt(P2(Oax[0],Oax[2]),'o″',-1,COL.p4,true);
+      if(space>0){L('L2',[Oax[0],0,Oax[2]],[Oax[0],5.7,Oax[2]],COL.p4,2.2,[7,3,2,3],space);Tx([Oax[0],5.5,Oax[2]],'o',COL.p4,6,0);}
+    }
+    L('L0',P1(A[0],A[1]),P2(A[0],0),COL.g,1.1,[4,4]); L('L0',P2(A[0],0),P2(A[0],A[2]),COL.g,1.1,[4,4]);
+    Dt(P1(A[0],A[1]),'A',1,COL.p1,true); Dt(P2(A[0],A[2]),'A',2,COL.p2,true);
+    if(space>0){
+      L('L0',A,P1(A[0],A[1]),COL.g,1,[4,4],space*.6); L('L0',A,P2(A[0],A[2]),COL.g,1,[4,4],space*.6);
+      Dt(A,'A',0,COL.ink,true,space);
+    }
+    if(si>=1){
+      if(ax===1){L('L2',P2(Oax[0]-R-.5,A[2]),P2(Oax[0]+R+.5,A[2]),COL.s,1.8,[5,3]);Tx(P2(Oax[0]+R+.4,A[2]),'z = const',COL.s,5,-5);}
+      else{L('L2',P1(Oax[0]-R-.5,A[1]),P1(Oax[0]+R+.5,A[1]),COL.s,1.8,[5,3]);Tx(P1(Oax[0]+R+.4,A[1]),'y = const',COL.s,5,10);}
+      if(space>0)ARC('L0',t=>rotPt(A,ax,Oax,t),0,2*Math.PI,COL.s,1.1,[3,4],space*.45,64);
+    }
+    if(si>=2){
+      L('L1',ax===1?P1(Oax[0],Oax[1]):P2(Oax[0],Oax[2]),ax===1?P1(A[0],A[1]):P2(A[0],A[2]),COL.z,1.4,[3,3]);
+      ARC('L3',t=>{const q=rotPt(A,ax,Oax,t);return ax===1?P1(q[0],q[1]):P2(q[0],q[2]);},0,phi,COL.z,2.5,null,1,48);
+      if(ax===1){L('L2',P1(Oax[0],Oax[1]),P1(Aend[0],Aend[1]),COL.z,1.6);Dt(P1(Aend[0],Aend[1]),'A₁′',-1,COL.z,true);}
+      else{L('L2',P2(Oax[0],Oax[2]),P2(Aend[0],Aend[2]),COL.z,1.6);Dt(P2(Aend[0],Aend[2]),'A₁″',-1,COL.z,true);}
+      if(space>0){
+        const Oc=ax===1?[Oax[0],Oax[1],A[2]]:[Oax[0],A[1],Oax[2]];
+        L('L1',Oc,A,COL.z,1.3,[3,3],space); L('L3',Oc,Acur,COL.z,2,null,space);
+        ARC('L3',t=>rotPt(A,ax,Oax,t),0,phi*st.rot,COL.z,2.6,null,space,44);
+        Dt(Acur,'A₁',-1,COL.z,true,space);
+      }
+    }
+    if(si>=3){
+      L('L0',ax===1?P1(Aend[0],Aend[1]):P2(Aend[0],Aend[2]),ax===1?P2(Aend[0],A[2]+.6):P1(Aend[0],A[1]+.6),COL.p3,1.4,[3,4]);
+      if(!st.quiz.on||st.quiz.done.has(0)){
+        L('L2',P1(Aend[0],Aend[1]),P2(Aend[0],0),COL.p3,1.5,[4,3]); L('L2',P2(Aend[0],0),P2(Aend[0],Aend[2]),COL.p3,1.5,[4,3]);
+        if(ax===1)Dt(P2(Aend[0],Aend[2]),'A₁″',-1,COL.p3,true); else Dt(P1(Aend[0],Aend[1]),'A₁′',-1,COL.p3,true);
+      }
+    }
+    return sc;
+  }
+
+  if(nm==='rot_duz'){
+    const [A,B]=P, ax=st.base, D=rotSegData(A,B,ax), B1=D.B1, B2=D.B2;
+    addPlanes(-0.4,8.8,6.4,6.8,false,false);
+    L('L2',P1(A[0],A[1]),P1(B[0],B[1]),COL.p1,2.2); L('L2',P2(A[0],A[2]),P2(B[0],B[2]),COL.p2,2.2);
+    for(const [q,lb] of [[A,'A'],[B,'B']]){
+      L('L0',P1(q[0],q[1]),P2(q[0],0),COL.g,1,[4,4],.5); L('L0',P2(q[0],0),P2(q[0],q[2]),COL.g,1,[4,4],.5);
+      Dt(P1(q[0],q[1]),lb,1,COL.p1,lb===(st.act===0?'A':'B')); Dt(P2(q[0],q[2]),lb,2,COL.p2,lb===(st.act===0?'A':'B'));
+    }
+    if(space>0){L('L2',A,B,COL.ink,2.5,null,space);Dt(A,'A',0,COL.ink,st.act===0,space);Dt(B,'B',0,COL.ink,st.act===1,space);}
+    if(si>=1){
+      if(ax===1){L('L1',P2(A[0],0),P2(A[0],6.3),COL.p4,1.6,[7,3,2,3]);Tx(P2(A[0],6.1),'o1″',COL.p4,5,2);Tx(P1(A[0],A[1]),'≡o1′',COL.p4,16,8);}
+      else{L('L1',P1(A[0],0),P1(A[0],6.0),COL.p4,1.6,[7,3,2,3]);Tx(P1(A[0],5.8),'o1′',COL.p4,5,8);Tx(P2(A[0],A[2]),'≡o1″',COL.p4,18,-4);}
+    }
+    if(si>=2){
+      ARC('L3',t=>{const q=rotPt(B,ax,A,t);return ax===1?P1(q[0],q[1]):P2(q[0],q[2]);},0,D.phi1,COL.z,2.1,null,1,42);
+      if(ax===1){
+        L('L2',P1(A[0],A[1]),P1(B1[0],B1[1]),COL.z,2); Dt(P1(B1[0],B1[1]),'B₁′',-1,COL.z,true);
+        L('L1',P2(Math.min(B[0],B1[0])-.3,B[2]),P2(B1[0]+.5,B[2]),COL.s,1.4,[4,3]);
+        L('L0',P1(B1[0],B1[1]),P2(B1[0],B[2]+.5),COL.g,1.2,[3,4]);
+        if(!(st.quiz.on&&si===2&&!st.quiz.done.has(0))){
+          L('L3',P2(A[0],A[2]),P2(B1[0],B1[2]),COL.p3,3); Dt(P2(B1[0],B1[2]),'B₁″',-1,COL.p3,true);
+          L('L0',P2(A[0],A[2]),P2(B1[0],A[2]),COL.p3,1.2,[3,3]);
+          ARC('L2',t=>P2(A[0]+.9*Math.cos(t),A[2]+.9*Math.sin(t)),0,Math.atan2(B1[2]-A[2],B1[0]-A[0]),COL.p3,1.6,null,1,20);
+          Tx(P2(A[0]+1.0,A[2]+.28),'α',COL.p3,2,0);
+          Tx(lerp3(P2(A[0],A[2]),P2(B1[0],B1[2]),.52),'PV',COL.p3,6,-7);
+        }
+      }else{
+        L('L2',P2(A[0],A[2]),P2(B1[0],B1[2]),COL.z,2); Dt(P2(B1[0],B1[2]),'B₁″',-1,COL.z,true);
+        L('L1',P1(Math.min(B[0],B1[0])-.3,B[1]),P1(B1[0]+.5,B[1]),COL.s,1.4,[4,3]);
+        L('L0',P2(B1[0],B1[2]),P1(B1[0],B[1]+.5),COL.g,1.2,[3,4]);
+        if(!(st.quiz.on&&si===2&&!st.quiz.done.has(0))){
+          L('L3',P1(A[0],A[1]),P1(B1[0],B1[1]),COL.p3,3); Dt(P1(B1[0],B1[1]),'B₁′',-1,COL.p3,true);
+          L('L0',P1(A[0],A[1]),P1(B1[0],A[1]),COL.p3,1.2,[3,3]);
+          Tx(lerp3(P1(A[0],A[1]),P1(B1[0],B1[1]),.52),'PV (β)',COL.p3,6,12);
+        }
+      }
+      if(space>0&&si<=3){
+        const Bc=rotPt(B,ax,A,D.phi1*st.rot);
+        ARC('L2',t=>rotPt(B,ax,A,t),0,D.phi1*st.rot,COL.z,2,[4,3],space,36);
+        L('L3',A,Bc,COL.p3,2.8,null,space); Dt(Bc,'B₁',-1,COL.p3,true,space);
+      }
+    }
+    if(si>=3){
+      const M=D.M, M1=D.M1;
+      if(ax===1){
+        Dt(P2(M1[0],M1[2]),'M₁″',-1,COL.hi,true); L('L3',P2(M1[0],M1[2]),P2(M[0],M[2]),COL.hi,1.7,[4,3]);
+        Dt(P2(M[0],M[2]),'M″',-1,COL.hi,true); L('L1',P2(M[0],M[2]),P1(M[0],M[1]),COL.hi,1.3,[3,3]);
+        Dt(P1(M[0],M[1]),'M′',-1,COL.hi,true);
+      }else{
+        Dt(P1(M1[0],M1[1]),'M₁′',-1,COL.hi,true); L('L3',P1(M1[0],M1[1]),P1(M[0],M[1]),COL.hi,1.7,[4,3]);
+        Dt(P1(M[0],M[1]),'M′',-1,COL.hi,true); L('L1',P1(M[0],M[1]),P2(M[0],M[2]),COL.hi,1.3,[3,3]);
+        Dt(P2(M[0],M[2]),'M″',-1,COL.hi,true);
+      }
+      if(space>0)Dt(M,'M',-1,COL.hi,true,space);
+    }
+    if(si>=4){
+      if(ax===1){L('L1',P1(A[0],0),P1(A[0],5.8),COL.p4,1.5,[7,3,2,3]);Tx(P1(A[0],5.5),'o2′',COL.p4,5,8);}
+      else{L('L1',P2(A[0],0),P2(A[0],6.0),COL.p4,1.5,[7,3,2,3]);Tx(P2(A[0],5.8),'o2″',COL.p4,5,2);}
+    }
+    if(si>=5){
+      const ax2=3-ax;
+      ARC('L3',t=>{const q=rotPt(B1,ax2,A,t);return ax===1?P2(q[0],q[2]):P1(q[0],q[1]);},0,D.phi2,COL.p4,2.1,null,1,42);
+      if(ax===1){
+        L('L3',P2(A[0],A[2]),P2(B2[0],B2[2]),COL.p4,2.8); Dt(P2(B2[0],B2[2]),'B₂″',-1,COL.p4,true);
+        Dt(P1(A[0],A[1]),'A₂′≡B₂′',-1,COL.p4,true);
+      }else{
+        L('L3',P1(A[0],A[1]),P1(B2[0],B2[1]),COL.p4,2.8); Dt(P1(B2[0],B2[1]),'B₂′',-1,COL.p4,true);
+        Dt(P2(A[0],A[2]),'A₂″≡B₂″',-1,COL.p4,true);
+      }
+      if(space>0){
+        const B2c=rotPt(B1,ax2,A,D.phi2*st.rot);
+        ARC('L3',t=>rotPt(B1,ax2,A,t),0,D.phi2*st.rot,COL.p4,2.1,[4,3],space,36);
+        L('L3',A,B2c,COL.p4,2.8,null,space); Dt(B2c,'B₂',-1,COL.p4,true,space);
+      }
+    }
+    return sc;
+  }
+
+  if(nm==='rot_ravan'){
+    const T=mkRotTriangle(st.off), pl=T.pl, P0=P.map(p=>pl.rabat2D(p));
+    addPlanes(-1.2,pl.xb+1.6,Math.max(pl.yb+3.8,8.5),pl.zb+1.5,true,false);
+    drawPlaneTraces(pl,si>=1,si===1);
+    const drawTri=(arr,col,w,dash,al)=>O.edges.forEach(([i,j])=>L(w>2?'L3':'L2',arr[i],arr[j],col,w,dash,al));
+    if(si===0||si>=3)drawTri(P.map(p=>P1(p[0],p[1])),COL.p1,si>=3?2.3:1.5,si===0?[4,3]:null,1);
+    if(si===0||si>=4)drawTri(P.map(p=>P2(p[0],p[2])),COL.p2,si>=4?2.3:1.5,si===0?[4,3]:null,1);
+    if(space>0){
+      drawTri(P,COL.ink,2.4,null,space);
+      P.forEach((p,i)=>Dt(p,O.lab[i],0,COL.ink,i===st.act,space));
+      if(si>=2){
+        const Pr=P.map(p=>pl.rot3D(p,st.rot));
+        drawTri(Pr,COL.z,2.3,[5,3],space*.9);
+        ARC('L2',t=>pl.rot3D(P[st.act],t),0,st.rot,COL.z,2,[3,3],space,32);
+      }
+    }
+    if(si>=2){
+      drawTri(P0.map(q=>P1(q[0],q[1])),COL.z,2.5,null,1);
+      P0.forEach((q,i)=>Dt(P1(q[0],q[1]),O.lab[i]+'₀',-1,COL.z,i===st.act));
+    }
+    if(si>=3){
+      P.forEach((p,i)=>{
+        const on=i===st.act, q0=P0[i];
+        L(on?'L2':'L0',P1(q0[0],q0[1]),P1(p[0],p[1]),on?COL.z:COL.g,on?1.6:1,[4,3],on?.9:.45);
+        Dt(P1(p[0],p[1]),O.lab[i],1,COL.p1,on);
+      });
+      const pa=P[st.act], qa=P0[st.act], H=pl.horizHit(pa), H0=pl.rabat2D(H);
+      L('L1',P1(qa[0],qa[1]),P1(H0[0],H0[1]),COL.s,1.5,[4,3]); Dt(P1(H0[0],H0[1]),'H₀',-1,COL.s);
+      L('L1',P1(H0[0],H0[1]),P1(H[0],0),COL.s,1.3,[3,3]); Dt(P1(H[0],0),'H′',-1,COL.s);
+      L('L2',P1(H[0],0),P1(pa[0],pa[1]),COL.s,1.6,[5,3]);
+      if(si>=4){
+        L('L1',P2(H[0],0),P2(H[0],H[2]),COL.s,1.4,[3,3]); Dt(P2(H[0],H[2]),'H″',-1,COL.s);
+        L('L2',P2(H[0],H[2]),P2(pa[0],pa[2]),COL.s,1.6,[5,3]);
+        P.forEach((p,i)=>{
+          const on=i===st.act;
+          L(on?'L1':'L0',P1(p[0],p[1]),P2(p[0],p[2]),on?COL.p2:COL.g,on?1.4:1,[3,4],on?.85:.38);
+          Dt(P2(p[0],p[2]),O.lab[i],2,COL.p2,on);
+        });
+      }
+    }
+    if(si===0)P.forEach((p,i)=>{Dt(P1(p[0],p[1]),O.lab[i],1,COL.p1,i===st.act);Dt(P2(p[0],p[2]),O.lab[i],2,COL.p2,i===st.act);});
+    return sc;
+  }
+
+  if(nm==='r1'){
+    const D=R1_DATA, pl=D.pl, n3=si>=4, P0=[0,1,2,3].map(i=>pl.rabat2D(P[i]));
+    addPlanes(-4.2,8.8,9.8,7.2,true,n3);
+    drawPlaneTraces(pl,si>=1,false);
+    // Zadata tacka A na t2
+    Dt(P1(P[0][0],P[0][1]),'A',1,COL.p1,st.act===0); Dt(P2(P[0][0],P[0][2]),'A',2,COL.p2,st.act===0);
+    L('L0',P1(P[0][0],0),P2(P[0][0],P[0][2]),COL.g,1.2,[3,3]);
+    if(si>=1){
+      const a0=P0[0];
+      L('L1',P1(P[0][0],0),P1(a0[0],a0[1]),COL.z,1.5,[4,3]); Dt(P1(a0[0],a0[1]),'A₀',-1,COL.z,true);
+      if(flat2){
+        const R=Math.hypot(P[0][0]-pl.xb,P[0][2]), t0=Math.atan2(P[0][2],P[0][0]-pl.xb), t1=Math.atan2(-a0[1],a0[0]-pl.xb);
+        ARC('L1',t=>[pl.xb+R*Math.cos(t),0,R*Math.sin(t)],t0,t1,COL.z,1.4,[4,3],.8,44);
+      }
+      if(space>0)ARC('L2',t=>pl.rot3D(P[0],t),0,st.rot,COL.z,2,[3,3],space,32);
+    }
+    if(si>=2){
+      const a0=P0[0], b0=P0[1];
+      if(si===2&&flat2){
+        const angB=Math.atan2(-(b0[1]-a0[1]),b0[0]-a0[0]);
+        ARC('L1',t=>P1(a0[0]+D.a*Math.cos(t),a0[1]-D.a*Math.sin(t)),angB-.32,angB+.32,COL.hi,1.8,[3,3],.9,20);
+      }
+      for(let i=0;i<4;i++){
+        const q1=P0[i],q2=P0[(i+1)%4]; L('L2',P1(q1[0],q1[1]),P1(q2[0],q2[1]),COL.z,2.3);
+        Dt(P1(q1[0],q1[1]),O.lab[i]+'₀',-1,COL.z,i===st.act);
+      }
+      if(space>0){
+        const Pr=[0,1,2,3].map(i=>pl.rot3D(P[i],st.rot));
+        for(let i=0;i<4;i++)L('L2',Pr[i],Pr[(i+1)%4],COL.z,2,[4,3],space*.85);
+      }
+    }
+    if(si>=3&&si<5){
+      for(let i=0;i<4;i++){
+        const q0=P0[i],p=P[i],q=P[(i+1)%4];
+        L('L0',P1(q0[0],q0[1]),P1(p[0],p[1]),COL.g,1,[3,3],.6);
+        L('L2',P1(p[0],p[1]),P1(q[0],q[1]),COL.p1,2.1); L('L2',P2(p[0],p[2]),P2(q[0],q[2]),COL.p2,2.1);
+        L('L0',P1(p[0],p[1]),P2(p[0],p[2]),COL.g,1,[3,4],.45);
+        Dt(P1(p[0],p[1]),O.lab[i],1,COL.p1,i===st.act); Dt(P2(p[0],p[2]),O.lab[i],2,COL.p2,i===st.act);
+        if(space>0)L('L2',p,q,COL.ink,2.3,null,space);
+      }
+    }
+    if(n3){
+      const C=P.map(p=>coords(S,p)), p3=C.map(k=>F.pi3(k.t,k.h));
+      // Trag t3 ravni β u π3
+      const kB=C[1], kD=C[3], dirT=unit(sub(p3[3],p3[1]));
+      L('L2',add(p3[1],mul(dirT,-0.9)),add(p3[3],mul(dirT,1.4)),COL.p3,1.8,[7,3,2,3]);
+      Tx(add(p3[3],mul(dirT,1.35)),'t3',COL.p3,-12,-6);
+      for(let i=0;i<(si>=5?8:4);i++){
+        const Ff=F.pi3(C[i].t,0), on=i===st.act;
+        if(i<4||on)L('L0',P1(P[i][0],P[i][1]),Ff,COL.g,1,[4,4],on?.7:.3);
+        if(i<4||on)L('L0',Ff,p3[i],COL.g,1,[3,4],on?.7:.3);
+        Dt(p3[i],O.lab[i],3,COL.p3,on);
+      }
+      for(let i=0;i<4;i++)L('L3',p3[i],p3[i+4],COL.p3,2.2);
+      L('L2',p3[5],p3[7],COL.p3,2);
+    }
+    if(si>=5){
+      const useVis=si>=6||(id==='zad'&&vp>0);
+      const edge=(pa,pb,runs,col,w,al,plId,eIdx)=>{
+        if(plId>0)sc.segs2.push({pa,pb,pl:plId,eIdx});
+        if(st.vquiz.on&&vp===plId&&!st.vquiz.done.has(eIdx)){
+          const sel=eIdx===st.eAct; L(sel?'L3':'L1',pa,pb,sel?COL.hi:'#94a3b8',sel?3.4:1.6,null,sel?1:.75); return;
+        }
+        if(!useVis||!runs){L('L2',pa,pb,col,w,null,al);return;}
+        for(const [f0,f1,h] of runs){const p=lerp3(pa,pb,f0),q=lerp3(pa,pb,f1); h?L('L1',p,q,col,w*.58,[4,4],al*.88):L('L2',p,q,col,w,null,al);}
+        if(vp&&st.eAct===eIdx&&(plId===vp||plId===viewMeta(S,vp).prevPl||plId===0))
+          L('L3',pa,pb,COL.hi,plId===0?3.4:3.2,runs.length===1&&runs[0][2]&&!(st.vquiz.on&&vp===plId)?[5,4]:null,.95);
+      };
+      O.edges.forEach(([i,j],m)=>{
+        edge(P1(P[i][0],P[i][1]),P1(P[j][0],P[j][1]),V[1]&&V[1][m],COL.p1,2.1,1,1,m);
+        edge(P2(P[i][0],P[i][2]),P2(P[j][0],P[j][2]),V[2]&&V[2][m],COL.p2,2.1,1,2,m);
+        if(space>0)edge(P[i],P[j],st.vquiz.on?null:(camV&&camV[m]),COL.ink,2.4,space,0,m);
+      });
+      const eEnds=vp&&st.eAct!==null?new Set(O.edges[st.eAct]):null;
+      P.forEach((p,i)=>{
+        const on=eEnds?eEnds.has(i):i===st.act;
+        if(on)L('L0',P1(p[0],p[1]),P2(p[0],p[2]),COL.z,1.3,[4,3],.75);
+        Dt(P1(p[0],p[1]),O.lab[i],1,COL.p1,on); Dt(P2(p[0],p[2]),O.lab[i],2,COL.p2,on);
+        if(space>0)Dt(p,O.lab[i],0,COL.ink,on,space);
+      });
+    }else if(space>0&&si===0){
+      // Na koraku 1 u 3D blago nagovesti ciljnu kocku na ravni β
+      O.edges.forEach(([i,j])=>L('L0',P[i],P[j],COL.ink,1.2,[3,4],space*.35));
+      Dt(P[0],'A',0,COL.ink,true,space);
+    }
+    return sc;
+  }
+
+  if(nm==='r2'){
+    const D=R2_DATA, pl=D.pl, n3=si>=5;
+    addPlanes(-5.2,13.2,10.5,10.0,true,n3);
+    drawPlaneTraces(pl,si>=1,false);
+    const circ3=th=>add(D.S0,lin(D.e1,D.e2,D.r*Math.cos(th),D.r*Math.sin(th)));
+    if(si>=1){
+      const s0=pl.rabat2D(D.S0), a0=pl.rabat2D(D.A), c0=pl.rabat2D(D.C), b0=pl.rabat2D(D.B), d0=pl.rabat2D(D.D), t20=pl.rabat2D(D.T2);
+      // Simetrala ugla u β0
+      const bis=unit(sub([s0[0],s0[1],0],pl.Xb));
+      L('L0',P1(pl.xb,0),P1(s0[0]+bis[0]*2.5,s0[1]+bis[1]*2.5),COL.g,1.1,[6,3,2,3],.7);
+      ARC('L2',th=>{const q=pl.rabat2D(circ3(th));return P1(q[0],q[1]);},0,2*Math.PI,COL.z,1.9,[6,3,2,3],.95,72);
+      L('L1',P1(a0[0],a0[1]),P1(c0[0],c0[1]),COL.z,1.2,[3,3]); L('L1',P1(b0[0],b0[1]),P1(d0[0],d0[1]),COL.z,1.2,[3,3]);
+      for(const [q,lb] of [[s0,'S₀'],[a0,'A₀'],[b0,'B₀'],[c0,'C₀'],[d0,'D₀'],[t20,'T₂₀']])Dt(P1(q[0],q[1]),lb,-1,COL.z,lb==='S₀');
+      if(space>0&&st.rot<0.999)ARC('L2',th=>pl.rot3D(circ3(th),st.rot),0,2*Math.PI,COL.z,1.8,[4,3],space*.8,56);
+    }
+    const drawConeProj=(mapFn,viewV,col,w)=>{
+      if(si<6){ARC('L2',th=>mapFn(circ3(th)),0,2*Math.PI,col,w,null,1,80);return null;}
+      const cv=coneVis(D.S0,D.r,D.h,pl.n,D.e1,D.e2,viewV), N=96;
+      let cur=null; const runs=[];
+      for(let i=0;i<N;i++){
+        const t0=2*Math.PI*i/N, t1=2*Math.PI*(i+1)/N, hid=cv.hiddenTh((t0+t1)/2);
+        if(cur&&cur.hid===hid)cur.t1=t1; else{cur={t0,t1,hid};runs.push(cur);}
+      }
+      for(const r of runs)ARC(r.hid?'L1':'L2',th=>mapFn(circ3(th)),r.t0,r.t1,col,r.hid?w*.62:w,r.hid?[4,4]:null,r.hid?.88:1,Math.max(8,Math.ceil((r.t1-r.t0)*16)));
+      for(const g of cv.gens)L('L3',mapFn(D.V),mapFn(g.pt),col,w*1.08,null,1);
+      return cv;
+    };
+    if(si>=2){
+      const cv1=drawConeProj(p=>P1(p[0],p[1]),[0,0,1],COL.p1,2.2);
+      const cv2=drawConeProj(p=>P2(p[0],p[2]),[0,1,0],COL.p2,2.2);
+      // Precnici i padnica K
+      L('L0',P1(D.A[0],D.A[1]),P1(D.C[0],D.C[1]),COL.p1,1.1,[3,3],.75);
+      L('L0',P1(D.B[0],D.B[1]),P1(D.Kp[0],D.Kp[1]),COL.p1,1.1,[3,3],.75);
+      L('L0',P2(D.A[0],D.A[2]),P2(D.C[0],D.C[2]),COL.p2,1.1,[3,3],.75);
+      L('L0',P2(D.B[0],D.B[2]),P2(D.Kp[0],D.Kp[2]),COL.p2,1.1,[3,3],.75);
+      Dt(P2(D.Kp[0],D.Kp[2]),'K″',-1,COL.p2);
+      for(let i=0;i<5;i++){
+        const p=P[i], on=i===st.act;
+        if(on)L('L0',P1(p[0],p[1]),P2(p[0],p[2]),COL.z,1.2,[3,3],.7);
+        Dt(P1(p[0],p[1]),O.lab[i],1,COL.p1,on); Dt(P2(p[0],p[2]),O.lab[i],2,COL.p2,on);
+        if(space>0)Dt(p,O.lab[i],0,COL.ink,on,space);
+      }
+      if(si>=6&&vp){
+        const cv=vp===1?cv1:cv2, mf=vp===1?p=>P1(p[0],p[1]):p=>P2(p[0],p[2]);
+        if(cv)cv.gens.forEach((g,gi)=>Dt(mf(g.pt),`T${gi+1}${PR(vp)}`,-1,COL.hi,true));
+      }
+      if(space>0){
+        if(si>=4&&camDir)drawConeProj(p=>p,camDir,COL.ink,2.3);
+        else ARC('L2',circ3,0,2*Math.PI,COL.ink,2.1,null,space,64);
+      }
+    }
+    if(si>=3){
+      L('L1',P1(D.S0[0],D.S0[1]),P1(D.P[0],D.P[1]),COL.s,1.5,[6,3,2,3]);
+      L('L1',P2(D.S0[0],D.S0[2]),P2(D.P[0],D.P[2]),COL.s,1.5,[6,3,2,3]);
+      Dt(P1(D.P[0],D.P[1]),'P',1,COL.s,st.act===6); Dt(P2(D.P[0],D.P[2]),'P',2,COL.s,st.act===6);
+      if(space>0){L('L1',D.S0,D.P,COL.s,1.8,[6,3,2,3],space);Dt(D.P,'P',0,COL.s,st.act===6,space);}
+    }
+    if(si>=4){
+      // Rotacija pomocne duzi SP oko ose ⊥ π1 kroz S -> prava velicina SP i odmeravanje h = 8
+      const phiSP=Math.atan2(D.P[1]-D.S0[1],D.P[0]-D.S0[0]);
+      ARC('L2',t=>{const q=rotPt(D.P,1,D.S0,t);return P1(q[0],q[1]);},0,phiSP,COL.z,1.7,[4,3],.9,32);
+      L('L0',P1(D.S0[0],D.S0[1]),P1(D.P0[0],D.P0[1]),COL.z,1.3,[3,3]);
+      Dt(P1(D.P0[0],D.P0[1]),'P₀′',-1,COL.z);
+      L('L0',P1(D.P0[0],D.P0[1]),P2(D.P0[0],D.P0[2]),COL.z,1.2,[3,4]);
+      L('L0',P2(D.P[0],D.P[2]),P2(D.P0[0],D.P0[2]),COL.z,1.2,[4,3]);
+      L('L2',P2(D.S0[0],D.S0[2]),P2(D.P0[0],D.P0[2]),COL.z,1.9); Dt(P2(D.P0[0],D.P0[2]),'P₀″',-1,COL.z);
+      L('L3',P2(D.S0[0],D.S0[2]),P2(D.V0[0],D.V0[2]),COL.hi,3); Dt(P2(D.V0[0],D.V0[2]),'V₀″ (h=8)',-1,COL.hi,true);
+      L('L2',P2(D.V0[0],D.V0[2]),P2(D.V[0],D.V[2]),COL.hi,1.7,[4,3]);
+      L('L1',P2(D.V[0],D.V[2]),P1(D.V[0],D.V[1]),COL.hi,1.4,[3,4]);
+      Dt(P1(D.V[0],D.V[1]),'V',1,COL.p1,st.act===5||si===4); Dt(P2(D.V[0],D.V[2]),'V',2,COL.p2,st.act===5||si===4);
+      if(space>0){
+        Dt(D.V,'V',0,COL.ink,true,space); L('L2',D.S0,D.V,COL.hi,2.2,null,space);
+        if(si===4){
+          const Pc=rotPt(D.P,1,D.S0,phiSP*st.rot);
+          ARC('L2',t=>rotPt(D.P,1,D.S0,t),0,phiSP*st.rot,COL.z,1.9,[3,3],space,28);
+          L('L2',D.S0,Pc,COL.z,2,null,space);
+        }
+      }
+    }
+    if(n3){
+      const kB=coords(S,D.B),kS=coords(S,D.S0),kD=coords(S,D.D),kV=coords(S,D.V),kK=coords(S,D.Kp);
+      const pB3=F.pi3(kB.t,kB.h),pS3=F.pi3(kS.t,kS.h),pD3=F.pi3(kD.t,kD.h),pV3=F.pi3(kV.t,kV.h),pK3=F.pi3(kK.t,kK.h);
+      L('L1',pB3,pK3,COL.p3,1.5,[7,3,2,3]); Tx(pK3,'t3',COL.p3,-16,-4);
+      for(const [p,k,lb] of [[D.B,kB,'B‴'],[D.S0,kS,'S‴≡A‴,C‴'],[D.D,kD,'D‴'],[D.V,kV,'V‴']]){
+        const Ff=F.pi3(k.t,0); L('L0',P1(p[0],p[1]),Ff,COL.g,1,[4,4],.38); L('L0',Ff,F.pi3(k.t,k.h),COL.g,1,[3,4],.38);
+        Dt(F.pi3(k.t,k.h),lb,-1,COL.p3,lb==='V‴');
+      }
+      L('L3',pD3,pB3,COL.p3,2.5); L('L3',pD3,pV3,COL.p3,2.5); L('L3',pB3,pV3,COL.p3,2.5);
+      L('L2',pS3,pV3,COL.hi,1.8,[5,3]); Tx(lerp3(pS3,pV3,.5),'8',COL.hi,6,2);
+    }
+    return sc;
+  }
+  return sc;
+}
+
 function render(cv,sc,proj,o){
   const ctx=cv.getContext('2d'), dpr=window.devicePixelRatio||1, many=st.O.pts.length>6;
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cv.clientWidth,cv.clientHeight);
   if(o.quads){
-    const qs=sc.quads.map(q=>{const pp=q.pts.map(proj);return {q,pp,d:pp.reduce((s,p)=>s+p[2],0)/4};}).sort((x,y)=>x.d-y.d);
+    const qs=sc.quads.map(q=>{const pp=q.pts.map(proj);return {q,pp,d:pp.reduce((s,p)=>s+p[2],0)/pp.length};}).sort((x,y)=>x.d-y.d);
     for(const {q,pp} of qs){
       ctx.beginPath(); pp.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath();
       ctx.globalAlpha=.09; ctx.fillStyle=q.col; ctx.fill(); ctx.globalAlpha=.5; ctx.strokeStyle=q.col; ctx.lineWidth=1; ctx.stroke();
@@ -584,17 +1154,20 @@ function render(cv,sc,proj,o){
       const m=[(pp[2][0]*.9+pp[0][0]*.1),(pp[2][1]*.9+pp[0][1]*.1)]; ctx.fillText(q.name,m[0]-8,m[1]+4);
     }
   }
-  ctx.lineCap='round';
+  ctx.lineCap='round'; ctx.lineJoin='round';
   for(const l of [...sc.L0,...sc.L1,...sc.L2,...sc.L3]){
-    const a=proj(l.p),b=proj(l.q); ctx.globalAlpha=l.al; ctx.strokeStyle=l.col; ctx.lineWidth=l.w; ctx.setLineDash(l.dash||[]);
-    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+    ctx.globalAlpha=l.al; ctx.strokeStyle=l.col; ctx.lineWidth=l.w; ctx.setLineDash(l.dash||[]);
+    ctx.beginPath();
+    if(l.pts){l.pts.forEach((pt,i)=>{const a=proj(pt);i?ctx.lineTo(a[0],a[1]):ctx.moveTo(a[0],a[1]);});}
+    else{const a=proj(l.p),b=proj(l.q);ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}
+    ctx.stroke();
   }
   ctx.setLineDash([]);
   const txt=(t,x,y,col)=>{ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y);};
   const G=new Map();
   for(const d of sc.dots){const p=proj(d.p),key=d.tag+'|'+Math.round(p[0]*2)+'|'+Math.round(p[1]*2);
     let g=G.get(key); if(!g){g={p,nums:[],tag:d.tag,col:d.col,r:d.r,al:d.al,on:false};G.set(key,g);}
-    g.nums.push(d.num); if(d.on){g.on=true;g.r=Math.max(g.r,d.r);} g.al=Math.max(g.al,d.al);}
+    if(!g.nums.includes(d.num))g.nums.push(d.num); if(d.on){g.on=true;g.r=Math.max(g.r,d.r);} g.al=Math.max(g.al,d.al);}
   const out=[];
   for(const g of [...G.values()].sort((a,b)=>a.on-b.on)){
     const p=g.p; ctx.globalAlpha=g.al; ctx.fillStyle=g.col; ctx.beginPath(); ctx.arc(p[0],p[1],g.r,0,7); ctx.fill();
@@ -629,13 +1202,18 @@ function sightGeom(vp){
 let last2=null;
 function draw(){
   norm(st.S,pts());
-  const fl=flags(), {a,b,c}=angles(fl), c3=$('c3'), c2=$('c2'), V=visAll(), B=bodyOf();
+  const fl=flags(), {a,b,c}=angles(fl), c3=$('c3'), c2=$('c2'), V=visAll(), B=bodyOf(), id=stepId(), rotM=isRot();
   const [w3,h3]=fit(c3), [w2,h2]=fit(c2);
-  const flat=buildScene(HP,HP,HP,0,fl,V), full=buildScene(HP,HP,HP,0,FULL,V);
+  const lastStep=stepList()[stepList().length-1];
+  const flat=rotM?buildRotScene(HP,HP,0,id,V):buildScene(HP,HP,HP,0,fl,V);
+  const full=rotM?buildRotScene(HP,HP,0,lastStep,V):buildScene(HP,HP,HP,0,FULL,V);
   const bx=st.box||{u0:1e9,u1:-1e9,v0:1e9,v1:-1e9};
   if(!st.box){
-    for(const l of [...full.L0,...full.L2,...full.L3])for(const p of [l.p,l.q]){bx.u0=Math.min(bx.u0,p[0]-.9);bx.u1=Math.max(bx.u1,p[0]+1.3);bx.v0=Math.min(bx.v0,p[2]-.9);bx.v1=Math.max(bx.v1,p[2]+.9);}
-    if(B){for(const vp of [3,4]){const sg=sightGeom(vp);for(const q of [sg.tail,sg.head]){bx.u0=Math.min(bx.u0,q[0]-1.1);bx.u1=Math.max(bx.u1,q[0]+1.1);bx.v0=Math.min(bx.v0,q[1]-.9);bx.v1=Math.max(bx.v1,q[1]+.9);}}}
+    for(const l of [...full.L0,...full.L1,...full.L2,...full.L3]){
+      const arr=l.pts||[l.p,l.q];
+      for(const p of arr){bx.u0=Math.min(bx.u0,p[0]-.9);bx.u1=Math.max(bx.u1,p[0]+1.3);bx.v0=Math.min(bx.v0,p[2]-.9);bx.v1=Math.max(bx.v1,p[2]+.9);}
+    }
+    if(B){const vps=rotM?[1,2]:[3,4]; for(const vp of vps){const sg=sightGeom(vp);for(const q of [sg.tail,sg.head]){bx.u0=Math.min(bx.u0,q[0]-1.1);bx.u1=Math.max(bx.u1,q[0]+1.1);bx.v0=Math.min(bx.v0,q[1]-.9);bx.v1=Math.max(bx.v1,q[1]+.9);}}}
     st.box=bx;
   }
   const cu=(bx.u0+bx.u1)/2, cv_=(bx.v0+bx.v1)/2;
@@ -645,7 +1223,8 @@ function draw(){
   last2={S2,dots:r2.dots,segs:r2.segs,toW:(x,y)=>[(x-w2/2)/S2+cu,-(y-h2/2-12)/S2+cv_],toS:q=>to2([q[0],0,q[1]])};
   overlay2(c2.getContext('2d'));
   if(!st.cam){
-    const q0=buildScene(0,0,0,0,FULL,{}).quads.flatMap(q=>q.pts); let lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9];
+    const q0=(rotM?buildRotScene(0,0,1,lastStep,{}):buildScene(0,0,0,0,FULL,{})).quads.flatMap(q=>q.pts);
+    let lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9];
     for(const p of q0)for(let i=0;i<3;i++){lo[i]=Math.min(lo[i],p[i]);hi[i]=Math.max(hi[i],p[i]);}
     st.cam={c:mul(add(lo,hi),.5),d:Math.hypot(...sub(hi,lo))};
   }
@@ -656,11 +1235,11 @@ function draw(){
   const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pit),sp=Math.sin(pit);
   const proj=p=>{const x=p[0]-pv[0],y=p[1]-pv[1],z=p[2]-pv[2],x1=x*cy+y*sy,y1=-x*sy+y*cy;
     return [w3/2+x1*S3,h3/2+12-(z*cp-y1*sp)*S3,y1*cp+z*sp];};
-  const space=clamp(1-st.f*8);
+  const space=clamp(1-st.f*8), camDir=[-sy*cp,cy*cp,sp];
   let camV=null;
-  if(space>0&&B){const v=[-sy*cp,cy*cp,sp]; camV=st.O.edges.map(([i,j])=>edgeRuns(B,pts()[i],pts()[j],v,0,28));}
-  render(c3,buildScene(a,b,c,space,fl,V,camV),proj,{quads:true});
-  info();
+  if(space>0&&B)camV=st.O.edges.map(([i,j])=>edgeRuns(B,pts()[i],pts()[j],camDir,0,28));
+  render(c3,rotM?buildRotScene(a,b,space,id,V,camV,camDir):buildScene(a,b,c,space,fl,V,camV),proj,{quads:true});
+  rotM?infoRot():info();
 }
 function drawArrow(ctx,a,b,col,w=2.4){
   const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy); if(L<2)return;
@@ -731,6 +1310,121 @@ function overlay2(ctx){
       }
       ctx.restore();
     }
+  }else if(st.O.name==='r2'&&vp){
+    const sg=sightGeom(vp), colP=COL['p'+vp], A=toS(sg.tail), H=toS(sg.head);
+    drawArrow(ctx,A,H,colP,2.6);
+    pill2(ctx,`Pogled za π${vp} · bliže oku`,A[0],A[1]+(A[1]<H[1]?-13:13),colP);
+  }
+}
+
+function ladderBox(){
+  const cur=st.O.name;
+  return `<div class="ladder"><b style="color:#0f766e;margin-right:4px">Od lakšeg ka težem:</b>`+
+    ROT_ORDER.map(k=>`<button data-goto="${k}" class="${k===cur?'on':''}">${ROT_META[k].kratko}</button>`).join('<span style="color:#94a3b8">→</span>')+
+    `</div>`;
+}
+
+function infoRot(){
+  const O=st.O, nm=O.name, id=stepId(), sl=stepList(), P=pts(), B=bodyOf(), vp=visPlane(), f2=v=>v.toFixed(2);
+  let title='', body='', h='', x='';
+  if(nm==='rot_tacka'){
+    const A=P[0], ax=st.base, Oax=ax===1?[2.4,2.2,0]:[2.4,0,2.3], phi=st.phi*RAD, A1=rotPt(A,ax,Oax,phi);
+    const R=ax===1?Math.hypot(A[0]-Oax[0],A[1]-Oax[1]):Math.hypot(A[0]-Oax[0],A[2]-Oax[2]);
+    const pCir=ax===1?'π1 (prva)':'π2 (druga)', pLin=ax===1?'π2 (druga)':'π1 (prva)';
+    const oPt=ax===1?'o′':'o″', oLn=ax===1?'o″':'o′', cVar=ax===1?'z':'y', aCir=ax===1?'A′':'A″', aLin=ax===1?'A″':'A′', a1Cir=ax===1?'A₁′':'A₁″', a1Lin=ax===1?'A₁″':'A₁′';
+    const T={
+      zad:['Zadato · tačka i osa rotacije (Nivo 1/5)',ladderBox()+`<p><b>Razlika u odnosu na transformaciju:</b> kod transformacije predmet miruje u prostoru, a uvodimo nove ravni π3, π4; kod <b>rotacije</b> ravni π1 i π2 miruju, a <b>okrećemo sam geometrijski element</b> oko ose <b>o</b>!</p><p>Osa <b>o ⊥ π${ax}</b> vidi se u ${pCir} projekciji kao <b>tačka ${oPt}</b>, a u ${pLin} kao <b>prava ${oLn} ⊥ 1x2</b>.</p>`],
+      put:[`1. pravilo rotacije · ravan okretanja (${cVar} = const)`,`<p>Svaka tačka pri rotaciji opisuje kružnicu u ravni <b>upravnoj na osu o</b>. Pošto je o ⊥ π${ax}, ta ravan je paralelna sa π${ax}, pa tačka A tokom celog okretanja zadržava istu koordinatu <b class="s">${cVar} = ${f2(ax===1?A[2]:A[1])}</b>.</p><p>Zato se u ${pLin} projekciji tačka ${aLin} kreće isključivo po <b class="s">pravoj upravnoj na ${oLn}</b> (paralelno osi 1x2)!</p>`],
+      luk:[`2. pravilo rotacije · kružni luk u π${ax}`,`<p>U ${pCir} projekciji ravan okretanja je paralelna sa slikom, pa se kružnica vidi <b>neskraćeno</b>! Šestar zabodeš u <b>${oPt}</b>, uzmeš poluprečnik <b class="z">R = d(${oPt}, ${aCir}) = ${f2(R)}</b> i opišeš kružni luk za ugao <b>φ = ${st.phi}°</b> do <b class="z">${a1Cir}</b>.</p>`],
+      proj:[`Spajanje · zarotirana projekcija ${a1Lin}`,`<p>Iz <b class="z">${a1Cir}</b> povučeš ordinalu (⊥ 1x2) do preseka sa pravom putanjom <b class="s">${cVar} = const</b> i dobijaš <b>${a1Lin}</b>. Klikni dugme <b>„↻ Okreni u 3D“</b> gore da vidiš kružno kretanje u prostoru!</p>`]
+    };
+    [title,body]=T[id];
+    h=`<div class="eq"><span class="chip cz">R = d(${oPt}, ${aCir}) = ${f2(R)}</span>=<span class="chip cz">d(${oPt}, ${a1Cir}) = ${f2(ax===1?Math.hypot(A1[0]-Oax[0],A1[1]-Oax[1]):Math.hypot(A1[0]-Oax[0],A1[2]-Oax[2]))}</span><span class="chip cs">${cVar}(A₁) = ${cVar}(A) = ${f2(ax===1?A1[2]:A1[1])}</span><span class="ok">✓ tačno</span></div>`;
+    if(id==='proj')x=`Savladan osnovni zakon (kružni luk + prava ⊥ osi)! <button data-goto="rot_duz" class="go" style="padding:2px 9px;margin-left:6px">Sledeći nivo: 2 · Duž ▶</button>`;
+  }else if(nm==='rot_duz'){
+    const [A,B0]=P, ax=st.base, D=rotSegData(A,B0,ax);
+    const l1=Math.hypot(B0[0]-A[0],B0[1]-A[1]), l2=Math.hypot(B0[0]-A[0],B0[2]-A[2]);
+    const T={
+      zad:['Zadato · opšta duž AB (Nivo 2/5)',ladderBox()+`<p>Duž <b>AB</b> je u opštem položaju (kosa prema π1 i π2), pa su obe projekcije <b>A′B′ = ${f2(l1)}</b> i <b>A″B″ = ${f2(l2)}</b> kraće od prave veličine <b>|AB| = ${f2(D.dAB)}</b>.</p><p>Cilj: dovesti duž u <b>specijalan položaj</b> pomoću rotacije — prvo paralelno sa ${D.parPl} (prava veličina i nagib ${D.angSym}), pa upravno na ${D.ptPl} (duž kao tačka).</p>`],
+      osa1:['Pametan izbor ose · o1 prolazi kroz A',`<p>Ako osu <b>o1 ⊥ π${ax}</b> postavimo tačno kroz krajnju tačku <b>A</b>, rastojanje tačke A od ose je nula — <b>tačka A ostaje nepokretna (A₁ ≡ A)</b>! Tako umesto dve tačke rotiramo samo jednu tačku: <b>B</b>.</p>`],
+      pv:[`1. rotacija · prava veličina i ugao ${D.angSym}`,`<p>U π${ax} zarotiramo tačku B oko A kružnim lukom poluprečnika <b class="z">r₁ = ${f2(D.r1)}</b> dok nova projekcija ne postane <b>paralelna sa 1x2</b>. Time je duž u prostoru postala paralelna sa ravni <b>${D.parPl}</b>!</p><p>U drugoj projekciji B klizi paralelno sa 1x2 u <b>B₁</b>: duž <b>AB₁ = ${f2(D.dAB)}</b> je <b>PRAVA VELIČINA</b>, a ugao prema 1x2 je pravi nagibni ugao <b>${D.angSym} = ${f2(D.ang/RAD)}°</b> prema ${D.angTo}!</p>`],
+      odmer:[`Odmeravanje zadate dužine L = ${f2(D.L)} na kosoj duži`,`<p><b>Ključna veština za složene zadatke (npr. visina kupe!):</b> zadatu pravu dužinu <b class="hi">L = ${f2(D.L)}</b> nikad ne meriš po skraćenoj projekciji, već je šestarom naneseš na <b>pravu veličinu AB₁</b> (tačka <b class="hi">M₁</b>)!</p><p>Zatim tačku M₁ vratiš nazad paralelno sa 1x2 pravo na izvornu projekciju duži u <b class="hi">M″</b> i ordinalom u <b class="hi">M′</b>.</p>`],
+      osa2:['Druga osa o2 · priprema za duž kao tačku',`<p>Da bi duž postala upravna na ${D.ptPl} (projekcija kao tačka), sada uvodimo <b>drugu osu o2 ⊥ ${D.parPl}</b> kroz već mirnu tačku A. Pošto je AB₁ već paralelna sa ${D.parPl}, u njoj se vidi u pravoj veličini i spremna je za drugu rotaciju.</p>`],
+      tacka:[`2. rotacija · duž AB₂ upravna na ${D.ptPl} (vidi se kao tačka)`,`<p>U ${D.parPl} zarotiramo pravu veličinu AB₁ oko A dok ne postane <b>upravna na 1x2</b> (<b>AB₂ ⊥ ${D.ptPl}</b>). U ${D.ptPl} tačka B₁ klizi paralelno sa 1x2 pravo u A, pa se cela duž poklapa u <b>jednu tačku A₂ ≡ B₂</b>!</p>`]
+    };
+    [title,body]=T[id];
+    h=`<div class="eq"><span class="chip ch">A′B′ = ${f2(l1)}</span><span class="chip ch">A″B″ = ${f2(l2)}</span><span class="chip cv">Prava veličina |AB| = ${f2(D.dAB)}</span><span class="chip cp">${D.angSym} = ${f2(D.ang/RAD)}°</span></div>`;
+    if(id==='tacka')x=`Sada znaš rotaciju tačke i duži! Sledeće je rotacija cele ravni oko njenog traga: <button data-goto="rot_ravan" class="go" style="padding:2px 9px;margin-left:6px">Sledeći nivo: 3 · Ravan ▶</button>`;
+  }else if(nm==='rot_ravan'){
+    const T0=mkRotTriangle(st.off), pl=T0.pl;
+    const T={
+      zad:[`Zadato · kosa ravan β(${f2(pl.xb)}; ${f2(pl.yb)}; ${f2(pl.zb)}) (Nivo 3/5)`,ladderBox()+`<p>Ravan <b>β</b> seče koordinatne ose u odsečcima <b>x=${f2(pl.xb)}, y=${f2(pl.yb)}, z=${f2(pl.zb)}</b>: trag <b>t1</b> spaja (${f2(pl.xb)},0) i y-odsečak u π1, a trag <b>t2</b> spaja (${f2(pl.xb)},0) i z-odsečak u π2.</p><p>Svaka figura u kosoj ravni (npr. jednakostranični trougao ABC) u obe projekcije izgleda <b>iskrivljeno i skraćeno</b>. Da bismo konstruisali pravilan lik u β, obaramo ravan u π1!</p>`],
+      trag0:['Obaranje ravni β oko prvog traga t1 (šarke)',`<p><b>Obaranje ravni = rotacija ravni β oko njenog traga t1</b> za ugao <b>180° − θ = ${f2(180-pl.theta/RAD)}°</b> dok ne legne u π1:</p><ol style="margin:4px 0;padding-left:18px"><li>Tačka preseka tragova <b>1X2</b> leži na šarki t1, pa <b>miruje</b>;</li><li>Uzmemo pomoćnu tačku <b>1 ∈ t2</b> (1′ na osi x, 1″ na t2): pri rotaciji oko t1 njena prva projekcija kreće se <b>upravno na t1</b>;</li><li>Njeno rastojanje od 1X2 se ne menja — šestarom iz <b>1X2</b> poluprečnikom <b>d(1X2, 1″)</b> presečemo normalu iz 1′ na t1 u <b class="z">1₀</b> i dobijamo oboreni trag <b class="z">(t2)0</b>!</li></ol>`],
+      lik0:[`Prava veličina lika A₀B₀C₀ u oborenoj ravni β0`,`<p>U polju između <b>t1</b> i <b class="z">(t2)0</b> ravan β leži potpuno ravno u π1 — tu vladaju <b>prave dužine i pravi uglovi</b>! Crtamo tačan jednakostranični trougao <b class="z">A₀B₀C₀</b> stranice <b>a = ${f2(T0.side)}</b> (svi uglovi po 60°).</p><p>Pomeri klizač <b>„Rotacija u 3D“</b> ili klikni <b>„↻ Okreni u 3D“</b> da vidiš kako trougao iz prostora pada u β0!</p>`],
+      vrati1:['Podizanje tačaka iz β0 u prvu projekciju (π1)',`<p>Kako se <b class="z">${O.lab[st.act]}₀</b> vraća u <b>${O.lab[st.act]}′</b> (afinitet sa osom t1):</p><ol style="margin:4px 0;padding-left:18px"><li>Kroz ${O.lab[st.act]}₀ povučeš <b>horizontalu ravni h₀ ∥ t1</b> do oborenog traga (t2)0 — dobijaš prodor <b class="s">H₀</b>;</li><li>Vratiš H₀ upravno na t1 do x-ose u <b class="s">H′</b>, pa iz H′ povučeš <b>h′ ∥ t1</b>;</li><li>Presek sa normalom iz ${O.lab[st.act]}₀ na šarku t1 daje tačnu prvu projekciju <b>${O.lab[st.act]}′</b>!</li></ol>`],
+      vrati2:['Podizanje u drugu projekciju (π2)',`<p>Prodor horizontale na vertikalnom tragu t2 nalazi se vertikalno iznad H′ u <b class="s">H″ ∈ t2</b>. U π2 svaka horizontala ravni ide <b>paralelno osi 1x2</b> (<b class="s">h″ ∥ 1x2</b>)!</p><p>Gde ordinala iz <b>${O.lab[st.act]}′</b> preseče pravu <b class="s">h″</b>, tu je <b>${O.lab[st.act]}″</b>. Ponovimo za sva tri temena i dobijamo projekcije trougla u obe ravni!</p>`]
+    };
+    [title,body]=T[id];
+    const d01=Math.hypot(...sub(P[0],P[1])), d12=Math.hypot(...sub(P[1],P[2])), d20=Math.hypot(...sub(P[2],P[0]));
+    h=`<div class="eq"><span class="chip cz">|A₀B₀| = ${f2(d01)}</span><span class="chip cz">|B₀C₀| = ${f2(d12)}</span><span class="chip cz">|C₀A₀| = ${f2(d20)}</span><span class="chip cp">nagib β prema π1: ${f2(pl.theta/RAD)}°</span></div>`;
+    if(id==='vrati2')x=`Obaranje ravni je spremno! Sada rešavamo prvi ispitni zadatak: <button data-goto="r1" class="go" style="padding:2px 9px;margin-left:6px">Sledeći nivo: 4 · R1 Kocka ▶</button>`;
+  }else if(nm==='r1'){
+    const D=R1_DATA, pl=D.pl, C=P.map(p=>coords(st.S,p));
+    const extr=(fn,mode)=>{const ds=C.map(fn),m=mode==='max'?Math.max(...ds):Math.min(...ds);return O.lab.filter((_,i)=>Math.abs(ds[i]-m)<1e-3).join(', ');};
+    const vpDepth=vp?viewMeta(st.S,vp).depth:null;
+    const T={
+      zad:['Ispitni zadatak R1 · Kocka na ravni β(7; 5; 6) (Nivo 4/5)',ladderBox()+`<p><b>Tekst zadatka:</b> Data je ravan <b>β(7; 5; 6)</b> na kojoj leži strana kocke <b>ABCD</b> ivice <b>a = 3,5 cm</b>. Teme <b>A</b> je u vertikalnoj ravni π2 (V) na <b>x = 4,0 cm</b> desno od profilne ravni, a susedno teme <b>B</b> leži u horizontalnoj ravni π1 (H). Nacrtati projekcije kocke.</p><p>Pošto je A ∈ π2 i A ∈ β, tačka A leži direktno na drugom tragu <b>t2</b>: <b>A′(4; 0)</b> i <b>A″(4; 2,57)</b>!</p>`+(vp?rulesBox(vp,st.S,extr(vpDepth,'max'),extr(vpDepth,'min')):'')],
+      obori:['1. korak · Obaranje ravni β oko t1 i nalaženje A₀',`<p>Kvadrat baze ABCD leži u kosoj ravni β, pa ga moramo nacrtati u oborenoj ravni <b>β0</b>:</p><p>Iz <b>A′(4;0)</b> povučemo normalu <b>upravno na šarku t1</b>, a šestarom iz <b>1X2(7;0)</b> poluprečnikom <b>d(1X2, A″) = ${f2(Math.hypot(3,P[0][2]))} cm</b> opišemo kružni luk do te normale — dobijamo <b class="z">A₀</b> i oboreni trag <b class="z">(t2)0</b>!</p>`],
+      kvadrat:['2. korak · Konstrukcija kvadrata A₀B₀C₀D₀ (a = 3,5 cm)',`<p>Uslov zadatka kaže: <b>teme B leži u π1 (H)</b> i u ravni β — dakle <b>B mora ležati na samom prvom tragu t1</b>, što znači da se pri obaranju ne pomera (<b>B₀ ≡ B′ ∈ t1</b>)!</p><p>Šestarom poluprečnika <b class="hi">a = 3,5 cm</b> iz <b class="z">A₀</b> presečemo trag <b>t1</b> u <b>B₀ ≡ B′</b> (u prvom oktantu), a zatim nad duži A₀B₀ u pravoj veličini konstruišemo kvadrat <b class="z">A₀B₀C₀D₀</b>!</p>`],
+      baza:['3. korak · Vraćanje donje baze ABCD u π1 i π2',`<p>Iz <b>C₀</b> i <b>D₀</b> povučemo normale na šarku t1, a pomoću horizontala ravni β dobijamo <b>C′, D′</b> u π1 i <b>C″, D″</b> u π2 (dok je B″ na x-osi jer B leži u π1). Donja strana kocke je kompletirana u obe projekcije!</p>`],
+      visina:['4. korak · Visina kocke a = 3,5 cm upravno na β (pomoćna π3 ⟂ t1)',`<p>Bočne ivice kocke <b>AA₁, BB₁, CC₁, DD₁</b> stoje upravno na ravan β i duge su <b>3,5 cm</b>. Postavimo pomoćnu ravan <b>π3 ⟂ t1</b> (dole levo, kao na listu): cela ravan β projektuje se u <b>jednu pravu t3</b>!</p><p>U π3 upravno na <b>t3</b> nanesemo pravu veličinu <b>3,5 cm</b> i dobijamo gornju bazu <b>A₁‴B₁‴C₁‴D₁‴</b>!</p>`],
+      gornja:['5. korak · Vraćanje gornjih temena A₁B₁C₁D₁',`<p>Iz A′, B′, C′, D′ povučemo normale <b>n′ ⊥ t1</b> i prenesemo ih iz π3 u <b>A₁′, B₁′, C₁′, D₁′</b>; zatim iz A″, B″, C″, D″ povučemo <b>n″ ⊥ t2</b> i na ordinalama iz π1 (ili sa visinama z iz π3) dobijamo <b>A₁″, B₁″, C₁″, D₁″</b>. Sve paralelne ivice kocke su paralelne i jednake i u projekcijama!</p>`],
+      vid:[`6. korak · Vidljivost ivica kocke u π${vp||1}`,rulesBox(vp||1,st.S,extr(viewMeta(st.S,vp||1).depth,'max'),extr(viewMeta(st.S,vp||1).depth,'min'))]
+    };
+    [title,body]=T[id];
+    if(vp&&B&&st.eAct!==null&&(!st.vquiz.on||st.vquiz.done.has(st.eAct))){
+      h=`<div class="inspect">${edgeExplain(edgeRule(B,P,O.edges,st.S,vp,st.eAct),O,vp)}</div>`;
+    }else{
+      h=`<div class="eq"><span class="chip cz">A(4,00; 0; 2,57)</span><span class="chip cv">B(${f2(P[1][0])}; ${f2(P[1][1])}; 0)</span><span class="chip cp">|AB| = |AD| = |AA₁| = 3,50 cm</span></div>`;
+    }
+    if(id==='vid'&&!st.vquiz.on)x=`U π1 je zaklonjeno najniže teme <b>B′ (z=0)</b>, a u π2 teme <b>A″ (y=0)</b> — prebaci <b>π1 / π2</b> desno ili reši vežbu! <button data-goto="r2" class="go" style="padding:2px 9px;margin-left:6px">Najteži nivo: 5 · R2 Kupa ▶</button>`;
+  }else if(nm==='r2'){
+    const D=R2_DATA, pl=D.pl;
+    const T={
+      zad:['Ispitni zadatak R2 · Kupa na ravni β(12; 7; 7) (Nivo 5/5)',ladderBox()+`<p><b>Tekst zadatka:</b> Nacrtati projekcije pravilne uspravne kupe čija baza poluprečnika <b>r = 3,5 cm</b> leži u ravni <b>β(12; 7; 7)</b> i dodiruje horizontalnicu (<b>t1</b>) i vertikalnicu (<b>t2</b>). Visina kupe je <b>h = 8 cm</b>.</p><p>Ovaj zadatak spaja <b>sve</b>: obaranje ravni za krug baze, afino vraćanje kruga u elipse, <b>rotaciju duži</b> za visinu h=8 cm na normali, proveru u π3 i tangente/vidljivost oblog tela!</p>`],
+      krug0:['1. korak · Obaranje ravni β i upisivanje kruga baze (r = 3,5 cm)',`<p>Zarotiramo trag t2 oko šarke t1 u <b class="z">(t2)0</b>. Pošto baza u pravoj veličini dodiruje oba traga (<b>t1</b> i <b>(t2)0</b>), centar baze <b class="z">S₀</b> mora ležati na <b>simetrali ugla ∠(t1, (t2)0)</b> na rastojanju <b>r = 3,5 cm</b> od t1!</p><p>Tačka dodira sa t1 je <b>B₀ ≡ B′</b>. Kroz S₀ povučemo dva glavna upravna prečnika: <b>A₀C₀ ∥ t1</b> (horizontala) i <b>B₀D₀ ⊥ t1</b> (padnica).</p>`],
+      elipse:['2. korak · Projekcije kruga baze — elipse u π1 i π2',`<p>U π1 prečnik <b>A′C′ ∥ t1</b> je paralelan sa π1 pa ostaje u <b>pravoj veličini 2r = 7,0 cm (velika osa elipse)</b>, dok se upravni prečnik B₀D₀ skraćuje u <b>malu osu B′D′</b>! Elipsa u π1 dodiruje trag t1 u <b>B′</b>.</p><p>Preko horizontala i padnice <b>BD (prodor K″ ∈ t2)</b> nalazimo S″, A″, B″, C″, D″ i crtamo elipsu baze u π2 (koja dodiruje trag t2 u <b>T₂″</b>)!</p>`],
+      normala:['3. korak · Osa uspravne kupe — normala n ⊥ β kroz centar S',`<p>Kod uspravne kupe vrh V leži na normali podignutoj iz centra baze S upravno na ravan β. U Monžovoj projekciji normala na ravan uvek ima projekcije <b>upravne na istoimene tragove</b>:</p><p>Kroz S′ povučemo <b class="s">n′ ⊥ t1</b>, a kroz S″ povučemo <b class="s">n″ ⊥ t2</b>, i na toj pravoj odaberemo proizvoljnu pomoćnu tačku <b class="s">P(P′, P″)</b>!</p>`],
+      rotsp:['4. korak · Rotacija duži SP za nanošenje prave visine h = 8 cm',`<p>Pošto je normala n kosa prema obe ravni, <b>visinu h = 8 cm NE SMEMO meriti direktno po n′ ili n″</b>! Primenjujemo <b>rotaciju duži</b> (sa Nivoa 2):</p><ol style="margin:4px 0;padding-left:18px"><li>Oko ose ⊥ π1 kroz S zarotiramo tačku P′ lukom u <b class="z">P₀′</b> (tako da je S′P₀′ ∥ 1x2);</li><li>Podignemo ordinalu do visine P″ i dobijamo <b class="z">pravu veličinu S″P₀″</b>;</li><li>Na S″P₀″ od S″ odmerimo tačno <b class="hi">h = 8,0 cm</b> (tačka <b class="hi">V₀″</b>) i vratimo je horizontalom (∥ 1x2) nazad na normalu n″ u vrh <b>V″</b>, pa ordinalom na n′ u <b>V′</b>!</li></ol>`],
+      pi3:['5. korak · Kontrola preko treće projekcije π3 ⟂ t1 (dole levo)',`<p>Kao i na ispitnom listu, tačnost vrha V nezavisno potvrđuje <b>pomoćna ravan π3 ⟂ t1</b>: cela ravan β postaje prava <b>t3</b>, elipsa baze postaje duž <b>D‴B‴ = 2r = 7,0 cm</b>, a kupa postaje <b>jednakokraki trougao D‴B‴V‴</b> čija je visina <b>S‴V‴ ⊥ t3</b> duga tačno <b>8,0 cm</b>!</p>`],
+      kontura:[`6. korak · Konturne izvodnice i vidljivost elipse u π${vp||1}`,`<div class="rules"><b>Pravila vidljivosti kupe u π${vp||1}:</b><ol>`+
+        `<li><b>Konturne izvodnice (uvek pune):</b> iz vrha <b>V${PR(vp||1)}</b> povučeš dve <b>tangente na elipsu baze</b> (tačke dodira <b class="hi">T₁${PR(vp||1)}, T₂${PR(vp||1)}</b>).</li>`+
+        `<li><b>Da li se baza vidi odozdo ili je zaklanja omotač:</b> pošto je <b>${(vp||1)===1?`z(V)=${f2(D.V[2])} > z(S)=${f2(D.S0[2])}`:`y(V)=${f2(D.V[1])} > y(S)=${f2(D.S0[1])}`}</b>, vrh V je <b>bliži posmatraču</b> od baze — gledamo kupu sa strane omotača!</li>`+
+        `<li><b>Spoljni vs. unutrašnji luk:</b> luk elipse sa spoljne strane konture (dalje od V${PR(vp||1)}, kroz ${(vp||1)===1?'A′, D′, C′':'A″ i B″'}) je <b>PUN</b>, a unutrašnji luk između T₁${PR(vp||1)} i T₂${PR(vp||1)} (kroz ${(vp||1)===1?'B′':'D″ i C″'}) leži iza prednjeg omotača kupe pa je <b>ISPREKIDAN</b>!</li></ol></div>`]
+    };
+    [title,body]=T[id];
+    h=`<div class="eq"><span class="chip cz">S(${f2(D.S0[0])}; ${f2(D.S0[1])}; ${f2(D.S0[2])})</span><span class="chip cv">V(${f2(D.V[0])}; ${f2(D.V[1])}; ${f2(D.V[2])})</span><span class="chip cp">r = 3,50 cm · h = |SV| = ${f2(Math.hypot(...sub(D.V,D.S0)))} cm</span></div>`;
+    if(id==='kontura')x=`Prebaci desno <b>Ispitaj π1 / Ispitaj π2</b> da uporediš tačke dodira tangenti T₁, T₂ i vidljivost luka u obe projekcije!`;
+  }
+  $('tTitle').textContent=`${st.k+1}/${sl.length} · ${title}`; $('tBody').innerHTML=body; $('eqs').innerHTML=st.quiz.on?'':h; $('extra').innerHTML=x;
+  const rSpec=rotQuizSpec(), canVQ=!!(nm==='r1'&&vp&&B&&id==='vid');
+  $('quiz').classList.toggle('on',!!(rSpec||canVQ));
+  $('vqBtns').style.display=canVQ&&st.vquiz.on?'flex':'none';
+  $('bXf').style.display='none';
+  if(rSpec){
+    $('bQuiz').textContent=st.quiz.on?'Završi vežbu (prikaži rešenje)':'Vežbaj: sam odredi projekciju';
+    $('bQuiz').classList.toggle('on',st.quiz.on);
+    $('qCnt').textContent=st.quiz.on?(st.quiz.done.size?'rešeno 1/1':'0/1'):'';
+    $('qMsg').innerHTML=st.quiz.on?(st.quiz.msg||`Klikni na crtežu gde pada zarotirana tačka <b>${rSpec.lbl}</b> (${rSpec.hint}).`):'';
+  }else if(canVQ){
+    $('bQuiz').textContent=st.vquiz.on?'Završi vežbu (prikaži rešenje)':'Vežbaj: puna ili isprekidana';
+    $('bQuiz').classList.toggle('on',st.vquiz.on);
+    $('bVQPart').style.display='none';
+    $('qCnt').textContent=st.vquiz.on?`rešeno ${st.vquiz.done.size}/${O.edges.length} ivica`:'';
+    if(st.vquiz.on){
+      const eIdx=st.eAct??0, [ia,ib]=O.edges[eIdx], M=viewMeta(st.S,vp);
+      $('qMsg').innerHTML=st.vquiz.msg||`Posmatraj narandžastu ivicu <b class="hi">${O.lab[ia]}–${O.lab[ib]}</b>: u <b>π${M.prevPl}</b> proveri njeno rastojanje od ose <b>${M.ax}</b> i odredi kakva je u <b>π${vp}</b>.`;
+    }else $('qMsg').innerHTML='';
   }
 }
 
@@ -830,28 +1524,64 @@ function info(){
 
 const TOUCH=window.matchMedia&&matchMedia('(pointer:coarse)').matches;
 function ui(){
-  const O=st.O, sl=stepList(), task=!!O.task, B=bodyOf(), id=stepId(), vp=visPlane();
-  document.querySelectorAll('#gObj button').forEach(b=>b.classList.toggle('on',b.dataset.obj===O.name));
-  document.querySelectorAll('#gBase button').forEach(b=>{b.classList.toggle('on',+b.dataset.base===st.S.base);b.disabled=task;});
-  const nm={zad:'Zadato',osa3:'Osa '+st.S.base+'x3',ord3:'Ordinale',pren3:'Prenesi',spoj3:'Spoji · π3',osa4:'Osa 3x4',ord4:'Ordinale',pren4:'Prenesi',spoj4:'Spoji · π4'};
+  const O=st.O, sl=stepList(), rotM=isRot(), task=!!O.task, B=bodyOf(), id=stepId(), vp=visPlane();
+  $('hMain').textContent=rotM?'Rotacija i obaranje — od jednostavnijih do težih':'Transformacija — 3D i crtež uporedo';
+  document.querySelectorAll('#gSec button').forEach(b=>b.classList.toggle('on',b.dataset.sec===st.sec));
+  $('gObj').style.display=rotM?'none':''; $('gObjR').style.display=rotM?'':'none';
+  document.querySelectorAll('#gObj button,#gObjR button').forEach(b=>b.classList.toggle('on',b.dataset.obj===O.name));
+  const showBase=!rotM||O.name==='rot_tacka'||O.name==='rot_duz';
+  $('gBase').style.display=showBase?'':'none';
+  if(showBase){
+    $('lBase').textContent=!rotM?'Lanac':O.name==='rot_tacka'?'Osa':'1. rot.';
+    $('bBase1').textContent=!rotM?'1→3→4':O.name==='rot_tacka'?'o ⊥ π1':'∥ π2 (α)';
+    $('bBase2').textContent=!rotM?'2→3→4':O.name==='rot_tacka'?'o ⊥ π2':'∥ π1 (β)';
+    document.querySelectorAll('#gBase button').forEach(b=>{b.classList.toggle('on',+b.dataset.base===(rotM?st.base:st.S.base));b.disabled=!rotM&&task;});
+  }
+  const nm=rotM?O.rot.nm:{zad:'Zadato',osa3:'Osa '+st.S.base+'x3',ord3:'Ordinale',pren3:'Prenesi',spoj3:'Spoji · π3',osa4:'Osa 3x4',ord4:'Ordinale',pren4:'Prenesi',spoj4:'Spoji · π4'};
   $('gStep').innerHTML=`<button class="nav" data-d="-1" ${st.k===0?'disabled':''}>◀ Nazad</button>`+
-    sl.map((s,i)=>`<button class="st ${i===st.k?'on':''} ${/3$/.test(s)?'g3':/4$/.test(s)?'g4':''}" data-k="${i}">${i+1} · ${nm[s]}</button>`).join('')+
+    sl.map((s,i)=>`<button class="st ${i===st.k?'on':''} ${rotM?(i>0?'g3':''):(/3$/.test(s)?'g3':/4$/.test(s)?'g4':'')}" data-k="${i}">${i+1} · ${nm[s]}</button>`).join('')+
     `<button class="nav go" data-d="1" ${st.k===sl.length-1?'disabled':''}>Dalje ▶</button>`;
-  $('mLab').innerHTML=`${nm[sl[st.k]]}<small>korak ${st.k+1} od ${sl.length}${st.k>=1&&st.k<=4?' · π3':st.k>4?' · π4':''}</small>`;
+  $('mLab').innerHTML=`${nm[sl[st.k]]}<small>korak ${st.k+1} od ${sl.length}${rotM?' · '+O.rot.kratko:(st.k>=1&&st.k<=4?' · π3':st.k>4?' · π4':'')}</small>`;
   $('mNav').firstElementChild.disabled=st.k===0; $('mNav').lastElementChild.disabled=st.k===sl.length-1;
   if(st.k!==ui.k){ui.k=st.k; const b=$('gStep').querySelector('.on'), g=$('gStep'); if(b&&g.scrollWidth>g.clientWidth)g.scrollLeft=b.offsetLeft-(g.clientWidth-b.offsetWidth)/2;}
   const set=(s,o,v,t)=>{$(s).value=v;$(o).textContent=t;};
-  set('sF','oF',st.f,Math.round(st.f*100)+'%'); set('sX','oX',st.off[0],st.off[0].toFixed(1)); set('sY','oY',st.off[1],st.off[1].toFixed(1)); set('sZ','oZ',st.off[2],st.off[2].toFixed(1));
+  set('sF','oF',st.f,Math.round(st.f*100)+'%');
+  set('sRot','oRot',st.rot,Math.round(st.rot*100)+'%');
+  set('sPhi','oPhi',st.phi,st.phi+'°');
+  $('bRot3').style.display=rotM?'':'none';
+  $('slRot').style.display=rotM?'':'none';
+  $('lRot').textContent=O.name==='rot_ravan'||O.name==='r1'||(O.name==='r2'&&st.k<=2)?'Obaranje β u 3D':'Rotacija u 3D';
+  $('slPhi').style.display=O.name==='rot_tacka'?'':'none';
+  $('gAxes').style.display=rotM?'none':'';
+  if(O.name==='rot_ravan'){
+    $('sX').min=5.5;$('sX').max=12.5;$('lX').textContent='odsečak xβ';
+    $('sY').min=3.5;$('sY').max=8.5;$('lY').textContent='odsečak yβ';
+    $('sZ').min=3.5;$('sZ').max=8.5;$('lZ').textContent='odsečak zβ';
+  }else{
+    $('sX').min=1;$('sX').max=5.2;$('lX').textContent='x (levo–desno)';
+    $('sY').min=0.5;$('sY').max=4.5;$('lY').textContent='y (ispred π2)';
+    $('sZ').min=0.5;$('sZ').max=4.5;$('lZ').textContent='z (visina iznad π1)';
+  }
+  set('sX','oX',st.off[0],st.off[0].toFixed(1)); set('sY','oY',st.off[1],st.off[1].toFixed(1)); set('sZ','oZ',st.off[2],st.off[2].toFixed(1));
   let td=st.S.th/RAD; while(td>180)td-=180; while(td<-90)td+=180; const pd=st.S.ps/RAD;
   set('sT','oT',td,Math.round(td)+'°'); set('sP','oP',pd,Math.round(pd)+'°');
   const fl=flags(); $('sT').disabled=!fl.n3; $('sP').disabled=!fl.n4; $('lT').textContent='ugao ose '+st.S.base+'x3'; $('lP').textContent='ugao 3x4 prema '+st.S.base+'x3';
-  $('gXYZ').style.display=task?'none':''; $('gPre').style.display=O.name==='duz'?'flex':'none';
-  $('bList').style.display=task&&LISTOVI?'':'none'; if(!LISTOVI)st.list=false;
-  $('nTask').textContent=task?'Mere tela i položaj osa očitani su sa fotografije lista, pa su odnosi približni. Numeracija tačaka prati list. Klizači menjaju ugao osa; dugme zadatka vraća zadati položaj.':'';
+  $('gXYZ').style.display=task?'none':''; $('gPre').style.display=O.name==='duz'||O.name==='rot_duz'?'flex':'none';
+  if(O.name==='rot_duz'){$('bPar').textContent='1. rot · prava veličina';$('bPerp').textContent='2. rot · duž kao tačka';}
+  else if(O.name==='duz'){$('bPar').textContent='π3 ∥ duž → prava veličina';$('bPerp').textContent='π4 ⟂ duž → duž kao tačka';}
+  $('bList').style.display=!rotM&&task&&LISTOVI?'':'none'; if(!LISTOVI||rotM)st.list=false;
+  $('nTask').textContent=rotM?(task?'Ispitni zadatak sa tačnim zadatim merama u centimetrima. Koristi korake iznad ili „↻ Okreni u 3D“ da vidiš kretanje u prostoru.':'Menjaj koordinate klizačima i posmatraj kako kružni luk u jednoj i prava u drugoj projekciji prate 3D okretanje.')
+    :(task?'Mere tela i položaj osa očitani su sa fotografije lista, pa su odnosi približni. Numeracija tačaka prati list. Klizači menjaju ugao osa; dugme zadatka vraća zadati položaj.':'');
   $('gAct').innerHTML=O.pts.length>1?'<span>Prati tačku</span>'+O.lab.map((l,i)=>`<button data-a="${i}" class="${!vp&&i===st.act?'on':''}" ${st.quiz.on&&st.quiz.done.has(i)?'style="border-color:#15803d;color:'+(i===st.act?'#fff':'#15803d')+'"':''}>${l}</button>`).join(''):'';
-  const showVPl=!!(B&&id==='zad');
+  const showVPl=!!((B&&id==='zad')||(O.name==='r1'&&id==='vid')||(O.name==='r2'&&id==='kontura'));
   $('gVPl').style.display=showVPl?'flex':'none';
-  if(showVPl)$('gVPl').innerHTML=`<span>Vidljivost u zadatom</span><button data-vp="0" class="${st.vpl===0?'on':''}">Isklj.</button><button data-vp="1" class="${st.vpl===1?'am on':'am'}">Ispitaj π1</button><button data-vp="2" class="${st.vpl===2?'am on':'am'}">Ispitaj π2</button>`;
+  if(showVPl){
+    const reqV=O.name==='r1'&&id==='vid'||O.name==='r2'&&id==='kontura';
+    $('gVPl').innerHTML=`<span>${reqV?'Ispitaj projekciju':'Vidljivost u zadatom'}</span>`+
+      (reqV?'':`<button data-vp="0" class="${st.vpl===0?'on':''}">Isklj.</button>`)+
+      `<button data-vp="1" class="${(vp||st.vpl)===1?'am on':'am'}">Ispitaj π1</button>`+
+      `<button data-vp="2" class="${(vp||st.vpl)===2?'am on':'am'}">Ispitaj π2</button>`;
+  }
   $('gEdge').style.display=vp&&B?'flex':'none';
   if(vp&&B){
     $('gEdge').innerHTML=`<span>Ispitaj ivicu (π${vp})</span><button data-ed="-1" title="Prethodna ivica">◀</button><button data-ed="1" title="Sledeća ivica">▶</button>`+
@@ -860,31 +1590,58 @@ function ui(){
         return `<button data-e="${m}" class="${sel?'am on':''}" ${done&&!sel?'style="border-color:#15803d;color:#15803d"':''}>${O.lab[a]}–${O.lab[b]}</button>`;
       }).join('')+(!st.vquiz.on?`<button data-e="none" class="${st.eAct===null?'on':''}" title="Prikaži crtež bez označene ivice">Sve čisto</button>`:'');
   }
-  $('h2d').textContent=vp?`Crtež · klikni ivicu da proveriš vidljivost u π${vp}`:'Crtež (oborene ravni) · klik na tačku je bira';
+  $('h2d').textContent=vp&&B?`Crtež · klikni ivicu da proveriš vidljivost u π${vp}`:rotM?'Monžov crtež (π1 i π2) · kružni lukovi i prave veličine':'Crtež (oborene ravni) · klik na tačku je bira';
   $('bFold').textContent=st.f>0.5?'◀ Vrati u prostor':'▶ Obori ravni u crtež';
-  const L=$('list'); L.classList.toggle('on',task&&st.list); $('bList').classList.toggle('on',task&&st.list);
-  $('h3d').textContent=task&&st.list?'List sa zadatkom':TOUCH?'3D prostor · vuci prstom, dva prsta zumiraju':'3D prostor · vuci mišem, točkić zumira';
-  if(task&&st.list&&L.dataset.for!==O.name){L.dataset.for=O.name;L.innerHTML=O.task.list.map(([src,cap])=>`<figure><img src="${src}" alt="${cap}"><figcaption>${cap}</figcaption></figure>`).join('');}
+  const L=$('list'); L.classList.toggle('on',!rotM&&task&&st.list); $('bList').classList.toggle('on',!rotM&&task&&st.list);
+  $('h3d').textContent=!rotM&&task&&st.list?'List sa zadatkom':TOUCH?'3D prostor · vuci prstom, dva prsta zumiraju':'3D prostor · vuci mišem, točkić zumira';
+  if(!rotM&&task&&st.list&&L.dataset.for!==O.name){L.dataset.for=O.name;L.innerHTML=O.task.list.map(([src,cap])=>`<figure><img src="${src}" alt="${cap}"><figcaption>${cap}</figcaption></figure>`).join('');}
   draw();
 }
 
-let anim=null, anim2=null;
+let anim=null, anim2=null, animR=null;
 function animate(to){
   cancelAnimationFrame(anim); const fl=flags(),np=fl.n4?3:fl.n3?2:1,from=st.f,t0=performance.now(),dur=1400*np+800;
   const tick=t=>{const k=clamp((t-t0)/dur); st.f=from+(to-from)*k; ui(); if(k<1)anim=requestAnimationFrame(tick);};
   anim=requestAnimationFrame(tick);
 }
+function animateRot3(){
+  cancelAnimationFrame(animR); if(!isRot())return;
+  if(st.f>0.2)st.f=0;
+  if(st.k===0)st.k=1;
+  st.rot=0; const t0=performance.now(), dur=1800;
+  const tick=t=>{const k=clamp((t-t0)/dur); st.rot=ss(k); ui(); if(k<1)animR=requestAnimationFrame(tick);};
+  animR=requestAnimationFrame(tick);
+}
 function xfer(){
-  cancelAnimationFrame(anim2); if(!quizPlane()||st.quiz.on){st.xf=null;return;}
+  cancelAnimationFrame(anim2); if(isRot()||!quizPlane()||st.quiz.on){st.xf=null;return;}
   const t0=performance.now();
   const tick=t=>{const k=(t-t0)/1500; st.xf=clamp(k/.8); draw(); if(k<1)anim2=requestAnimationFrame(tick); else{st.xf=null;draw();}};
   anim2=requestAnimationFrame(tick);
 }
-function go(k){const n=stepList().length; k=clamp(k,0,n-1); if(k===st.k)return; st.k=k; st.vpl=0; resetQuiz(); st.xf=null; if(visPlane())pickDefaultEdge(); else st.eAct=null; ui(); xfer();}
+function go(k){
+  const n=stepList().length; k=clamp(k,0,n-1); if(k===st.k)return; st.k=k; st.vpl=0; resetQuiz(); st.xf=null;
+  if(st.O.name==='r1'&&stepId()==='vid')st.vpl=1;
+  if(st.O.name==='r2'&&stepId()==='kontura')st.vpl=1;
+  if(visPlane()&&bodyOf())pickDefaultEdge(); else st.eAct=null;
+  ui(); xfer();
+}
 function setAct(i){const n=st.O.pts.length; st.act=((i%n)+n)%n; st.eAct=null; st.quiz.msg=''; st.quiz.miss=null; ui(); xfer();}
 function setEdge(m){const n=st.O.edges.length; st.eAct=m===null?null:((m%n)+n)%n; st.vquiz.msg=''; ui();}
 
 function quizClick(X,Z){
+  if(isRot()){
+    const sp=rotQuizSpec(); if(!sp)return;
+    const tol=Math.max(.24,(TOUCH?22:13)/last2.S2), err=[X-sp.tgt[0],Z-sp.tgt[1]];
+    if(Math.hypot(...err)<tol){
+      st.quiz.done.add(0); st.quiz.miss=null;
+      st.quiz.msg=`<span class="ok">✓ Tačno!</span> Tačka <b>${sp.lbl}</b> leži tačno ${sp.hint}.`;
+    }else{
+      st.quiz.miss=[X,Z];
+      if(Math.abs(err[0])>tol)st.quiz.msg=`<span class="bad">✗ Pomereno levo–desno.</span> Moraš biti na <b>ordinali</b> (tačkasta vertikala x = ${sp.tgt[0].toFixed(2)}).`;
+      else st.quiz.msg=`<span class="bad">✗ Dobra ordinala, pogrešna visina/dubina.</span> Tačka ne menja rastojanje duž ose (${sp.hint}).`;
+    }
+    ui(); return;
+  }
   const qp=quizPlane(), kp=keyPts(st.act), tgt=qp===3?kp.p3:kp.p4, foot=qp===3?kp.Ff:kp.G, a=qp===3?kp.a3:kp.a4;
   const axd=[a[1][0]-a[0][0],a[1][1]-a[0][1]], D=Math.hypot(tgt[0]-foot[0],tgt[1]-foot[1]);
   const nr=D>1e-6?[(tgt[0]-foot[0])/D,(tgt[1]-foot[1])/D]:[-axd[1],axd[0]];
@@ -934,22 +1691,30 @@ function vquizSolveContour(){
 }
 
 $('gZad').innerHTML=Object.keys(ZAD).map(k=>`<button data-obj="${k}" title="${ZAD[k].ime}">${ZAD[k].ime}</button>`).join('');
-$('gObj').onclick=e=>{const o=e.target.dataset.obj; if(o){resetObj(o);st.f=0;ui();}};
-$('gBase').onclick=e=>{const b=+e.target.dataset.base; if(b&&!st.O.task){st.base=b;resetObj(st.O.name);ui();}};
+$('gSec').onclick=e=>{
+  const s=e.target.dataset.sec; if(!s||s===st.sec)return;
+  st.k=0; st.f=0; resetObj(s==='rot'?'rot_tacka':'tacka'); ui();
+};
+$('gObj').onclick=$('gObjR').onclick=e=>{const o=e.target.dataset.obj; if(o){st.k=0;resetObj(o);st.f=0;ui();}};
+document.querySelector('.bottom .card').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-goto]'); if(b){st.k=0;resetObj(b.dataset.goto);st.f=0;ui();}
+});
+$('gBase').onclick=e=>{const b=+e.target.dataset.base; if(b&&(isRot()||!st.O.task)){st.base=b;resetObj(st.O.name);ui();}};
 $('mNav').onclick=e=>{const t=e.target.closest('button'); if(t)go(st.k+ +t.dataset.d);};
 $('gStep').onclick=e=>{const t=e.target.closest('button'); if(!t)return; if(t.dataset.k!==undefined)go(+t.dataset.k); else if(t.dataset.d)go(st.k+ +t.dataset.d);};
 $('gAct').onclick=e=>{const a=e.target.dataset.a; if(a!==undefined)setAct(+a);};
-$('gVPl').onclick=e=>{const v=e.target.dataset.vp; if(v!==undefined){st.vpl=+v; st.box=null; if(st.vpl)pickDefaultEdge(); else st.eAct=null; ui();}};
+$('gVPl').onclick=e=>{const v=e.target.dataset.vp; if(v!==undefined){st.vpl=+v; st.box=null; if(visPlane()&&bodyOf())pickDefaultEdge(); else st.eAct=null; ui();}};
 $('gEdge').onclick=e=>{const t=e.target.closest('button'); if(!t)return;
   if(t.dataset.ed)setEdge((st.eAct??0)+ +t.dataset.ed);
   else if(t.dataset.e==='none')setEdge(null);
   else if(t.dataset.e!==undefined)setEdge(+t.dataset.e);};
+$('bRot3').onclick=animateRot3;
 $('bFold').onclick=()=>animate(st.f>0.5?0:1);
 $('bView').onclick=()=>{st.yaw=-0.6;st.pitch=0.42;st.zoom=1;st.box=null;st.cam=null;ui();};
 $('bList').onclick=()=>{st.list=!st.list;ui();};
 $('bQuiz').onclick=()=>{
   if(quizPlane()){const on=!st.quiz.on; resetQuiz(); st.quiz.on=on; st.xf=null; if(on)st.act=0; ui();}
-  else if(visPlane()){const on=!st.vquiz.on; resetQuiz(); st.vquiz.on=on; if(on)st.eAct=0; else pickDefaultEdge(); ui();}
+  else if(visPlane()&&bodyOf()){const on=!st.vquiz.on; resetQuiz(); st.vquiz.on=on; if(on)st.eAct=0; else pickDefaultEdge(); ui();}
 };
 $('bVQVis').onclick=()=>vquizAnswer('vis');
 $('bVQHid').onclick=()=>vquizAnswer('hid');
@@ -957,17 +1722,21 @@ $('bVQPart').onclick=()=>vquizAnswer('part');
 $('bVQCont').onclick=vquizSolveContour;
 $('bXf').onclick=xfer;
 $('sF').oninput=e=>{cancelAnimationFrame(anim);st.f=+e.target.value;ui();};
-$('sX').oninput=e=>{st.off[0]=+e.target.value;st.box=null;ui();};
-$('sY').oninput=e=>{st.off[1]=+e.target.value;st.box=null;ui();};
-$('sZ').oninput=e=>{st.off[2]=+e.target.value;st.box=null;ui();};
+$('sRot').oninput=e=>{cancelAnimationFrame(animR);st.rot=+e.target.value;ui();};
+$('sPhi').oninput=e=>{st.phi=+e.target.value;st.box=null;ui();};
+$('sX').oninput=e=>{st.off[0]=+e.target.value;st.box=null;st.cam=null;st.visKey='';ui();};
+$('sY').oninput=e=>{st.off[1]=+e.target.value;st.box=null;st.cam=null;st.visKey='';ui();};
+$('sZ').oninput=e=>{st.off[2]=+e.target.value;st.box=null;st.cam=null;st.visKey='';ui();};
 $('sT').oninput=e=>{st.S.th=+e.target.value*RAD;st.box=null;st.cam=null;ui();};
 $('sP').oninput=e=>{st.S.ps=+e.target.value*RAD;st.box=null;st.cam=null;ui();};
 $('bPar').onclick=()=>{
+  if(st.O.name==='rot_duz'){go(2);animateRot3();return;}
   const P=pts(),bc=p=>st.S.base===2?[p[0],p[2]]:[p[0],-p[1]],a=bc(P[0]),b=bc(P[1]);
   let th=Math.atan2(b[1]-a[1],b[0]-a[0]); th=((th%Math.PI)+Math.PI)%Math.PI;
   st.S.th=th; if(st.k<3)st.k=Math.min(4,stepList().length-1); st.box=null; st.cam=null; ui();
 };
 $('bPerp').onclick=()=>{
+  if(st.O.name==='rot_duz'){go(5);animateRot3();return;}
   st.k=stepList().length-1; norm(st.S,pts());
   const c=pts().map(p=>coords(st.S,p)); let ps=Math.atan2(c[1].h-c[0].h,c[1].t-c[0].t)+HP;
   while(ps>HP)ps-=Math.PI; while(ps<=-HP)ps+=Math.PI; st.S.ps=ps;
@@ -991,9 +1760,9 @@ function distSeg2(x,y,a,b){
   return Math.hypot(x-(a[0]+t*dx),y-(a[1]+t*dy));
 }
 $('c2').onclick=e=>{
-  if(!last2)return; const r=$('c2').getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top, vp=visPlane();
+  if(!last2)return; const r=$('c2').getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top, vp=visPlane(), B=bodyOf();
   if(st.quiz.on&&quizPlane()){const w=last2.toW(x,y);quizClick(w[0],w[1]);return;}
-  if(vp){
+  if(vp&&B){
     const prevPl=viewMeta(st.S,vp).prevPl;
     let bestE=null,be=TOUCH?22:13;
     for(const s of last2.segs){
@@ -1004,33 +1773,48 @@ $('c2').onclick=e=>{
     if(bestE!==null){setEdge(bestE);return;}
     if(st.vquiz.on)return;
   }
-  let best=null,bd=TOUCH?28:16; for(const d of last2.dots){const q=Math.hypot(d.x-x,d.y-y); if(q<bd){bd=q;best=d;}}
-  if(best){const cur=st.O.lab[st.act],i=best.nums.indexOf(cur),nx=best.nums[(i+1)%best.nums.length]; setAct(st.O.lab.indexOf(nx));}
+  let best=null,bd=TOUCH?28:16;
+  for(const d of last2.dots){
+    if(!d.nums.some(lb=>st.O.lab.includes(lb)))continue;
+    const q=Math.hypot(d.x-x,d.y-y); if(q<bd){bd=q;best=d;}
+  }
+  if(best){
+    const valid=best.nums.filter(lb=>st.O.lab.includes(lb));
+    const cur=st.O.lab[st.act],i=valid.indexOf(cur),nx=valid[(i+1)%valid.length];
+    setAct(st.O.lab.indexOf(nx));
+  }
 };
 window.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
   if(e.key==='ArrowRight'){go(st.k+1);e.preventDefault();} else if(e.key==='ArrowLeft'){go(st.k-1);e.preventDefault();}
-  else if(e.key==='ArrowDown'){visPlane()?setEdge((st.eAct??-1)+1):setAct(st.act+1);e.preventDefault();}
-  else if(e.key==='ArrowUp'){visPlane()?setEdge((st.eAct??0)-1):setAct(st.act-1);e.preventDefault();}
+  else if(e.key==='ArrowDown'){visPlane()&&bodyOf()?setEdge((st.eAct??-1)+1):setAct(st.act+1);e.preventDefault();}
+  else if(e.key==='ArrowUp'){visPlane()&&bodyOf()?setEdge((st.eAct??0)-1):setAct(st.act-1);e.preventDefault();}
 });
 window.addEventListener('resize',draw);
-(()=>{const h=new URLSearchParams(location.hash.slice(1)), o=h.get('obj');
+function applyHash(){
+  const h=new URLSearchParams(location.hash.slice(1)), o=h.get('obj'), sec=h.get('sec');
   if(h.get('base'))st.base=+h.get('base')===2?2:1;
-  resetObj(SIMPLE[o]||ZAD[o]?o:'tacka');
+  const initObj=SIMPLE[o]||ZAD[o]||ROT_META[o]?o:(sec==='rot'?'rot_tacka':'tacka');
+  resetObj(initObj);
   if(h.get('step'))st.k=[0,3,stepList().length-1][clamp(+h.get('step'),1,3)-1];
-  if(h.get('k')){st.k=clamp(+h.get('k')-1,0,stepList().length-1); if(visPlane())pickDefaultEdge();}
+  if(h.get('k')){st.k=clamp(+h.get('k')-1,0,stepList().length-1); if(initObj==='r1'&&stepId()==='vid')st.vpl=1; if(initObj==='r2'&&stepId()==='kontura')st.vpl=1; if(visPlane()&&bodyOf())pickDefaultEdge();}
   if(h.get('vpl'))st.vpl=+h.get('vpl');
+  if(h.get('rot')){const rv=+h.get('rot'); st.rot=clamp(rv>1?rv/100:rv);}
+  if(h.get('phi'))st.phi=clamp(+h.get('phi'),-175,175);
   if(h.get('edge')){const [ea,eb]=h.get('edge').split('-'), idx=st.O.edges.findIndex(([i,j])=>(st.O.lab[i]===ea&&st.O.lab[j]===eb)||(st.O.lab[i]===eb&&st.O.lab[j]===ea)); if(idx>=0)st.eAct=idx;}
   else if(h.get('e')==='none')st.eAct=null;
-  else if(h.get('e')!==null)st.eAct=clamp(+h.get('e'),0,Math.max(0,st.O.edges.length-1));
-  if(h.get('f'))st.f=clamp(+h.get('f')); if(h.get('act'))st.act=clamp(+h.get('act')-1,0,st.O.pts.length-1);
+  else if(h.get('e')!==null&&st.O.edges.length)st.eAct=clamp(+h.get('e'),0,Math.max(0,st.O.edges.length-1));
+  if(h.get('f')){const fv=+h.get('f'); st.f=clamp(fv>1?fv/100:fv);}
+  if(h.get('act'))st.act=clamp(+h.get('act')-1,0,st.O.pts.length-1);
   if(h.get('yaw'))st.yaw=+h.get('yaw'); if(h.get('pitch'))st.pitch=+h.get('pitch');
   if(h.get('list'))st.list=true; if(h.get('xf'))st.xf=+h.get('xf');
   if(h.get('quiz')&&quizPlane()){st.quiz.on=true;(h.get('done')||'').split(',').filter(Boolean).forEach(v=>st.quiz.done.add(+v-1));}
-  if(h.get('vquiz')&&visPlane()){st.vquiz.on=true; if(st.eAct===null)st.eAct=0;}
+  if(h.get('vquiz')&&visPlane()&&bodyOf()){st.vquiz.on=true; if(st.eAct===null)st.eAct=0;}
   if(h.get('pre')){ui();$('bPar').click();$('bPerp').click();}
-})();
-ui();
+  ui();
+}
+window.addEventListener('hashchange',applyHash);
+applyHash();
 </script>
 </body>
 </html>
