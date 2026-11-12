@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Transformacija: 3D i crtež uporedo · nacrtna geometrija</title>
+<meta name="description" content="Interaktivno učenje transformacije (uvođenja novih ravni projekcije) u nacrtnoj geometriji: 3D prostor i crtež uporedo, korak po korak.">
+<meta name="author" content="dr Poturak Semir">
+<style>
+  :root{--z:#ea580c;--s:#db2777;--p1:#64748b;--p2:#2563eb;--p3:#0d9488;--p4:#7c3aed;--ink:#0f172a;--mut:#64748b;--line:#e2e8f0}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:var(--ink);background:#f8fafc}
+  header{padding:8px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;background:#fff;border-bottom:1px solid var(--line)}
+  h1{font-size:16px;margin:0 8px 0 0;font-weight:650}
+  .grp{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+  .grp>span{color:var(--mut);font-size:12px;margin-right:4px}
+  button{font:inherit;padding:5px 11px;border:1px solid #cbd5e1;background:#fff;border-radius:7px;cursor:pointer;color:var(--ink)}
+  button:hover{background:#f1f5f9}
+  button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button.go{background:#0d9488;border-color:#0d9488;color:#fff;font-weight:600}
+  button:disabled{opacity:.4;cursor:default}
+  .steps{display:flex;gap:4px;align-items:center;padding:8px 16px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .steps button.st{padding:4px 9px;font-size:13px}
+  .steps button.g3{border-bottom:3px solid var(--p3)} .steps button.g4{border-bottom:3px solid var(--p4)}
+  .steps .nav{font-weight:700}
+  .steps .sep{width:10px}
+  main{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 16px}
+  .pane{background:#fff;border:1px solid var(--line);border-radius:10px;position:relative;overflow:hidden}
+  .pane h2{position:absolute;left:12px;top:8px;margin:0;font-size:12px;font-weight:600;color:var(--mut);letter-spacing:.04em;text-transform:uppercase;pointer-events:none;z-index:1}
+  canvas{display:block;width:100%;height:58vh;min-height:340px;touch-action:none}
+  #c3{cursor:grab} #c2{cursor:crosshair}
+  #list{position:absolute;inset:0;background:#fff;display:none;z-index:2;padding:30px 8px 8px;gap:8px}
+  #list.on{display:flex}
+  #list figure{flex:1;margin:0;display:flex;flex-direction:column;min-width:0}
+  #list img{flex:1;min-height:0;width:100%;object-fit:contain}
+  #list figcaption{font-size:12px;color:var(--mut);text-align:center}
+  .bottom{display:grid;grid-template-columns:1.25fr 1fr;gap:10px;padding:0 16px 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .card h3{margin:0 0 6px;font-size:14px}
+  .card p{margin:0 0 6px}
+  .sl{display:grid;grid-template-columns:150px 1fr 44px;gap:8px;align-items:center;margin:3px 0}
+  .sl label{font-size:13px;color:#334155}
+  .sl output{font-variant-numeric:tabular-nums;text-align:right;color:var(--mut)}
+  input[type=range]{width:100%}
+  .eq{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:6px 0;font-variant-numeric:tabular-nums}
+  .chip{padding:3px 9px;border-radius:999px;color:#fff;font-weight:600;font-size:13px}
+  .cz{background:var(--z)} .cs{background:var(--s)}
+  .ok{color:#15803d;font-weight:700} .bad{color:#b91c1c;font-weight:600}
+  .note{color:var(--mut);font-size:12.5px}
+  .quiz{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);display:none}
+  .quiz.on{display:block}
+  #gAct button{padding:2px 7px;font-size:12.5px;min-width:28px}
+  b.z{color:var(--z)} b.s{color:var(--s)}
+  @media(max-width:900px){main,.bottom{grid-template-columns:1fr}canvas{height:46vh}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Transformacija — 3D i crtež uporedo</h1>
+  <div class="grp" id="gObj"><span>Osnove</span>
+    <button data-obj="tacka">Tačka</button><button data-obj="duz">Duž</button><button data-obj="piramida">Piramida</button>
+    <span style="margin-left:10px">Zadaci</span><span id="gZad" class="grp"></span></div>
+  <div class="grp" id="gBase"><span>Lanac</span><button data-base="1">1→3→4</button><button data-base="2">2→3→4</button></div>
+  <div class="grp"><button class="go" id="bFold">▶ Obori ravni u crtež</button><button id="bView">Vrati pogled</button><button id="bList">Prikaži list</button></div>
+</header>
+<div class="steps" id="gStep"></div>
+
+<main>
+  <div class="pane"><h2 id="h3d">3D prostor · vuci mišem, točkić zumira</h2><canvas id="c3"></canvas><div id="list"></div></div>
+  <div class="pane"><h2>Crtež (oborene ravni) · klik na tačku je bira</h2><canvas id="c2"></canvas></div>
+</main>
+
+<div class="bottom">
+  <div class="card">
+    <h3 id="tTitle"></h3>
+    <div id="tBody"></div>
+    <div id="eqs"></div>
+    <div id="extra" class="note"></div>
+    <div id="quiz" class="quiz">
+      <div class="grp"><button id="bQuiz">Vežbaj: sam prenesi tačke</button><button id="bXf">↻ Pokaži prenos šestarom</button><span id="qCnt" class="note"></span></div>
+      <div id="qMsg" style="margin-top:6px"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="grp" id="gAct" style="margin-bottom:6px"></div>
+    <div class="sl"><label>Obaranje ravni</label><input type="range" id="sF" min="0" max="1" step="0.005" value="0"><output id="oF"></output></div>
+    <div id="gXYZ">
+    <div class="sl"><label>x (levo–desno)</label><input type="range" id="sX" min="1" max="4.5" step="0.05"><output id="oX"></output></div>
+    <div class="sl"><label>y (ispred π2)</label><input type="range" id="sY" min="0.5" max="4.5" step="0.05"><output id="oY"></output></div>
+    <div class="sl"><label>z (visina iznad π1)</label><input type="range" id="sZ" min="0.5" max="4.5" step="0.05"><output id="oZ"></output></div>
+    </div>
+    <div class="sl"><label id="lT">ugao ose 1x3</label><input type="range" id="sT" min="-90" max="180" step="1"><output id="oT"></output></div>
+    <div class="sl"><label id="lP">ugao ose 3x4</label><input type="range" id="sP" min="-89" max="90" step="1"><output id="oP"></output></div>
+    <div class="grp" id="gPre" style="margin-top:8px">
+      <button id="bPar">π3 ∥ duž → prava veličina</button>
+      <button id="bPerp">π4 ⟂ duž → duž kao tačka</button>
+    </div>
+    <p class="note" id="nTask" style="margin:8px 0 0"></p>
+    <p class="note" style="margin:8px 0 0">Tastatura: ← → korak, ↑ ↓ tačka. Nova ravan se obara od predmeta, oko svoje ose; π1 naniže oko 1x2. Isprekidano = zaklonjena ivica.</p>
+  </div>
+</div>
+<footer style="padding:10px 14px;color:#64748b;font-size:12.5px;text-align:center">© 2026 dr Poturak Semir · <a href="https://github.com/3esign/nacrtna-3d" style="color:inherit">izvorni kod</a> · licenca MIT</footer>
+
+<script>
+//MATH-BEGIN
+const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const mul=(a,k)=>[a[0]*k,a[1]*k,a[2]*k];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const lin=(p,q,x,y)=>add(mul(p,x),mul(q,y));
+// S = {base: 1|2 ravan koja ostaje u prvoj transformaciji, A:[u,v] tacka ose (base)x3 u crtezu, th njen ugao,
+//      B:[t,h] tacka ose 3x4 u ravni π3, ps njen ugao, f3,f4 = ±1 strana na koju gleda normala (predmet ostaje na s>0, w>0)}
+function dirs(S){
+  const f3=S.f3||1,f4=S.f4||1;
+  return {d:[Math.cos(S.th),Math.sin(S.th)], n3:[f3*Math.sin(S.th),-f3*Math.cos(S.th)],
+          e:[Math.cos(S.ps),Math.sin(S.ps)], n4:[-f4*Math.sin(S.ps),f4*Math.cos(S.ps)]};
+}
+// a,b,c = uglovi obaranja π1, π3, π4 (0 = u prostoru, π/2 = oboreno u crtez)
+function frames(S,a,b,c){
+  const {d,n3,e,n4}=dirs(S);
+  const eu=[1,0,0], ev=[0,-Math.cos(a),Math.sin(a)], m1=[0,Math.sin(a),Math.cos(a)];
+  const bv=S.base===2?[0,0,1]:ev, bm=S.base===2?[0,1,0]:m1;      // osnovna ravan: druga osa i normala ka predmetu
+  const D=lin(eu,bv,d[0],d[1]), N3=lin(eu,bv,n3[0],n3[1]);
+  const H=lin(bm,N3,Math.cos(b),Math.sin(b)), M3=lin(N3,bm,-Math.cos(b),Math.sin(b));
+  const O3=lin(eu,bv,S.A[0],S.A[1]);
+  const E=lin(D,H,e[0],e[1]), N4=lin(D,H,n4[0],n4[1]);
+  const K=lin(M3,N4,Math.cos(c),Math.sin(c));
+  const O4=add(O3,lin(D,H,S.B[0],S.B[1]));
+  return {D,H,M3,E,N4,K,
+    pi2:(u,v)=>[u,0,v],
+    pi1:(u,v)=>lin(eu,ev,u,v),
+    pi3:(t,h)=>add(O3,lin(D,H,t,h)),
+    pi4:(r,k)=>add(O4,lin(E,K,r,k))};
+}
+// koordinate projekcija tacke P=[x,y,z] (pravilo prenosenja rastojanja)
+// h = rastojanje od osnovne ravni (z ili y), s = rastojanje od π3, w = rastojanje od π4
+function coords(S,P){
+  const {d,n3,e,n4}=dirs(S);
+  const [x,y,z]=P, bc=S.base===2?[x,z]:[x,-y], h=S.base===2?y:z, rel=[bc[0]-S.A[0],bc[1]-S.A[1]];
+  const t=rel[0]*d[0]+rel[1]*d[1], s=-(rel[0]*n3[0]+rel[1]*n3[1]);
+  const q=[t-S.B[0],h-S.B[1]];
+  const r=q[0]*e[0]+q[1]*e[1], w=-(q[0]*n4[0]+q[1]*n4[1]);
+  return {x,y,z,t,h,s,r,w};
+}
+// normale okrenute tako da teziste predmeta bude na strani s>0 i w>0
+function norm(S,P){
+  const c=mul(P.reduce(add,[0,0,0]),1/P.length);
+  S.f3=1; if(coords(S,c).s<0)S.f3=-1;
+  S.f4=1; if(coords(S,c).w<0)S.f4=-1;
+  return S;
+}
+function distPL(p,a,b){ // rastojanje tacke od prave u ravni crteza (x,z)
+  const vx=b[0]-a[0],vz=b[2]-a[2],L=Math.hypot(vx,vz);
+  return Math.abs((p[0]-a[0])*vz-(p[2]-a[2])*vx)/L;
+}
+// --- telo i vidljivost ---
+// telo = {add:[deo],sub:[deo]}; deo = prizma {ax:'x'|'y'|'z', lo, hi, poly:[[a,b],...]}, (a,b) = preostale dve koordinate po redu
+function inPoly(a,b,poly){
+  let ins=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const [xi,yi]=poly[i],[xj,yj]=poly[j];
+    if((yi>b)!==(yj>b) && a<(xj-xi)*(b-yi)/(yj-yi)+xi)ins=!ins;
+  }
+  return ins;
+}
+function inPart(p,q){
+  const i=q.ax==='x'?0:q.ax==='y'?1:2;
+  if(p[i]<q.lo||p[i]>q.hi)return false;
+  return i===0?inPoly(p[1],p[2],q.poly):i===1?inPoly(p[0],p[2],q.poly):inPoly(p[0],p[1],q.poly);
+}
+function solid(B,p){
+  let a=false; for(const q of B.add)if(inPart(p,q)){a=true;break;}
+  if(!a)return false;
+  if(B.sub)for(const q of B.sub)if(inPart(p,q))return false;
+  return true;
+}
+const TET=[[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]];
+function inS(B,p,eps){ // strogo unutra: tacka i cetiri bliska suseda su u telu
+  if(!solid(B,p))return false;
+  for(const o of TET)if(!solid(B,[p[0]+o[0]*eps,p[1]+o[1]*eps,p[2]+o[2]*eps]))return false;
+  return true;
+}
+// tacka p je zaklonjena ako zrak od nje ka posmatracu (pravac v) prolazi kroz telo
+function hiddenAt(B,p,v,R){
+  for(let s=0.05;s<R;s+=0.06)if(inS(B,[p[0]+v[0]*s,p[1]+v[1]*s,p[2]+v[2]*s],0.0137))return true;
+  return false;
+}
+function edgeRuns(B,p,q,v,R,n){ // delovi ivice: [od,do,zaklonjeno]
+  n=n||20; const runs=[]; let cur=null;
+  for(let i=0;i<n;i++){
+    const f=(i+.5)/n, h=hiddenAt(B,[p[0]+(q[0]-p[0])*f,p[1]+(q[1]-p[1])*f,p[2]+(q[2]-p[2])*f],v,R);
+    if(cur&&cur[2]===h)cur[1]=(i+1)/n; else{cur=[i/n,(i+1)/n,h];runs.push(cur);}
+  }
+  return runs;
+}
+//MATH-END
+
+// Javno izdanje ne sadrzi fotografije listova (folder listovi/); true ih ukljucuje u lokalnoj kopiji.
+const LISTOVI=false;
+//TASKS-BEGIN
+// Zadaci sa listova. Mere su ocitane sa fotografija (priblizni odnosi); numeracija tacaka prati list.
+const ring=ids=>ids.map((v,i)=>[v,ids[(i+1)%ids.length]]);
+const ZAD=(()=>{
+  const Z={};
+  { // Z1: stampani list "2. transformacija" (prizma s otvorom, duz x); resenje na drugoj slici ima drugu numeraciju
+    const pr={1:[5,.5],2:[.5,.5],3:[.5,4.5],4:[1.5,3.5],5:[3.8,3.5],6:[3.8,1.6],7:[2.6,1.6],8:[1.5,1.6],9:[1.5,2.6],10:[2.6,2.6]};
+    const V={}; for(const k in pr){V[k]=[4.1,...pr[k]];V[+k+10]=[1,...pr[k]];}
+    const o=[1,2,3,4,5,6],h=[7,8,9,10],E=[...ring(o),...ring(h),...ring(o.map(v=>v+10)),...ring(h.map(v=>v+10))];
+    for(let i=1;i<=10;i++)E.push([i,i+10]);
+    Z.z1={ime:'Z1 · prizma s otvorom',base:2,V,E,
+      body:{add:[{ax:'x',lo:1,hi:4.1,poly:o.map(i=>pr[i])}],sub:[{ax:'x',lo:0,hi:5,poly:h.map(i=>pr[i])}]},
+      ax3:{pt:[-2,8.2],ang:-22.4},ax4:{pt:[-4.85,6.85],ang:21},
+      list:[['listovi/z1_zadatak.png','Zadatak'],['listovi/z1_resenje.png','Rešenje sa lista (druga numeracija tačaka)']],
+      coin:{1:['3,2','4,9,8','10,7','5,6','13,12','14,19,18','20,17','15,16'],2:['1,2','6,7,8','10,9','5,4','11,12','16,17,18','19,20','14,15']}};
+  }
+  { // Z2: stampani list, fotografisan ogledalski (ovde vracen u pravi polozaj)
+    const pr={1:[1,.5],2:[6.4,.5],3:[6.4,3.5],4:[3.65,3.5],5:[3.65,2.75],6:[5.3,2.75],7:[5.3,2],8:[1,1.25]};
+    const V={}; for(const k in pr){V[k]=[pr[k][0],3.7,pr[k][1]];V[+k+8]=[pr[k][0],.65,pr[k][1]];}
+    const o=[1,2,3,4,5,6,7,8],E=[...ring(o),...ring(o.map(v=>v+8))]; for(let i=1;i<=8;i++)E.push([i,i+8]);
+    Z.z2={ime:'Z2 · stepenasti profil',base:2,V,E,
+      body:{add:[{ax:'y',lo:.65,hi:3.7,poly:o.map(i=>pr[i])}]},
+      ax3:{pt:[.17,7.17],ang:-27.8},ax4:{pt:[.32,6.81],ang:17.5},
+      list:[['listovi/z2_zadatak.png','Zadatak (slika vraćena iz ogledala)']],
+      coin:{2:['1,9','2,10','3,11','4,12','5,13','6,14','7,15','8,16'],1:['1,8','2,3','4,5','6,7','9,16','10,11','12,13','14,15']}};
+  }
+  { // Z3: zakrenut L-profil, zadnja polovina ima dodatnu trostranu prizmu (6,7,8 na sredini dubine)
+    const e1=[.5,.866],e2=[-.866,.5],p=(q,e,k)=>[+(q[0]+e[0]*k).toFixed(3),+(q[1]+e[1]*k).toFixed(3)];
+    const q5=[5.2,0],q4=p(q5,e1,1.6),q3=p(q4,e2,2.8),q7=p(q3,e1,2.4),q2=p(q7,e2,2.2),q1=p(q2,e1,-4);
+    const F=4.8,M=2.75,Bk=.5,at=(q,y)=>[q[0],y,q[1]];
+    const V={1:at(q1,F),2:at(q2,F),3:at(q3,F),4:at(q4,F),5:at(q5,F),6:at(q2,M),7:at(q7,M),8:at(q3,M),
+             9:at(q2,Bk),10:at(q7,Bk),11:at(q3,Bk),12:at(q4,Bk),13:at(q5,Bk),14:at(q1,Bk)};
+    Z.z3={ime:'Z3 · zakrenut profil',base:1,V,
+      E:[...ring([1,2,3,4,5]),...ring([14,9,10,11,12,13]),[1,14],[2,6],[6,9],[3,8],[8,11],[4,12],[5,13],[6,7],[7,8],[6,8],[7,10]],
+      body:{add:[{ax:'y',lo:Bk,hi:F,poly:[q1,q2,q3,q4,q5]},{ax:'y',lo:Bk,hi:M,poly:[q2,q7,q3]}]},
+      ax3:{pt:[9.4,.42],ang:62.6},ax4:{pt:[3.25,-9.35],ang:3},
+      list:[['listovi/z3_zadatak.png','Zadatak']],
+      coin:{2:['2,6,9','7,10','3,8,11','4,12','5,13','1,14']}};
+  }
+  { // Z4: rucni list (fotografija zarotirana); L-profil sa kosinom
+    const pr={1:[1,0],5:[1,1.1],7:[2.4,2.3],9:[2.4,3.7],10:[4.1,3.7],2:[4.1,0]},pair={1:4,5:6,7:8,9:12,10:11,2:3};
+    const V={}; for(const k in pr){V[k]=[pr[k][0],3.8,pr[k][1]];V[pair[k]]=[pr[k][0],5.3,pr[k][1]];}
+    const o=[1,5,7,9,10,2],E=[...ring(o),...ring(o.map(v=>pair[v]))]; for(const k of o)E.push([k,pair[k]]);
+    Z.z4={ime:'Z4 · L-profil s kosinom',base:1,V,E,
+      body:{add:[{ax:'y',lo:3.8,hi:5.3,poly:o.map(i=>pr[i])}]},
+      ax3:{pt:[-2.53,-6.4],ang:-35},ax4:{pt:[-.03,-4.9],ang:32},
+      list:[['listovi/z4_zadatak.png','Zadatak sa rešenjem (slika uspravljena)']],
+      coin:{2:['1,4','5,6','7,8','9,12','10,11','2,3'],1:['1,5','7,9','2,10','4,6','8,12','3,11']}};
+  }
+  { // Z5: digitalni list (telo sa zlebom i klinom pozadi), osa 3x4 uspravna
+    const B=2.15,M=3.1,F=4.75;
+    const V={1:[2.8,.9,0],2:[4.6,.9,0],3:[4.6,B,0],8:[2.8,B,0],25:[2.8,B,3.05],26:[4.6,B,3.05],
+      4:[5.5,B,0],5:[5.5,F,0],6:[1.9,F,0],7:[1.9,B,0],9:[6.4,B,2.2],10:[6.4,F,2.2],11:[1,B,2.2],12:[1,F,2.2],
+      17:[1,B,3.9],24:[1,F,3.9],18:[6.4,B,3.9],19:[6.4,F,3.9],
+      22:[1.9,M,3.9],23:[1.9,F,3.9],13:[1.9,M,2.55],16:[1.9,F,2.55],14:[5.5,M,2.55],15:[5.5,F,2.55],21:[5.5,M,3.9],20:[5.5,F,3.9]};
+    Z.z5={ime:'Z5 · telo sa žlebom i klinom',base:1,V,
+      E:[...ring([6,12,24,23,16,15,20,19,10,5]),...ring([7,11,17,18,9,4]),[6,7],[12,11],[24,17],[19,18],[10,9],[5,4],
+         [23,22],[16,13],[15,14],[20,21],[22,13],[13,14],[14,21],[22,21],[1,2],[2,3],[8,1],[8,25],[3,26],[25,26],[1,25],[2,26]],
+      body:{add:[{ax:'y',lo:B,hi:F,poly:[[1.9,0],[5.5,0],[6.4,2.2],[6.4,3.9],[1,3.9],[1,2.2]]},
+                 {ax:'x',lo:2.8,hi:4.6,poly:[[.9,0],[B,0],[B,3.05]]}],
+            sub:[{ax:'y',lo:M,hi:5.2,poly:[[1.9,2.55],[5.5,2.55],[5.5,4.6],[1.9,4.6]]}]},
+      ax3:{pt:[10.08,-2.5],ang:59},ax4:{pt:[14.1,-6],ang:90},
+      list:[['listovi/z5_resenje.png','Rešenje sa lista']],
+      coin:{2:['17,24','22,23','20,21','18,19','13,16','14,15','11,12','9,10','6,7','1,8','2,3','4,5'],
+            1:['11,17','8,25','3,26','9,18','13,22','14,21','12,24','6,16,23','5,15,20','10,19']}};
+  }
+  return Z;
+})();
+// ose zadatka su date u koordinatama crteza (tacka + ugao), kao na listu
+function setupTask(z,P){
+  const HP=Math.PI/2,RAD=Math.PI/180, S={base:z.base,A:z.ax3.pt.slice(),th:z.ax3.ang*RAD,B:[0,0],ps:0,f3:1,f4:1};
+  norm(S,P);
+  let {d,n3}=dirs(S);
+  const C=P.map(p=>coords(S,p)), mt=C.reduce((a,k)=>a+k.t,0)/C.length, mh=C.reduce((a,k)=>a+k.h,0)/C.length;
+  const a=z.ax4.ang*RAD, v=[Math.cos(a),Math.sin(a)], rel=[z.ax4.pt[0]-S.A[0],z.ax4.pt[1]-S.A[1]];
+  let e=[v[0]*d[0]+v[1]*d[1],v[0]*n3[0]+v[1]*n3[1]], ps=Math.atan2(e[1],e[0]);
+  while(ps>HP)ps-=Math.PI; while(ps<=-HP)ps+=Math.PI; S.ps=ps; e=[Math.cos(ps),Math.sin(ps)];
+  const b0=[rel[0]*d[0]+rel[1]*d[1],rel[0]*n3[0]+rel[1]*n3[1]], kk=(mt-b0[0])*e[0]+(mh-b0[1])*e[1];
+  S.B=[b0[0]+kk*e[0],b0[1]+kk*e[1]];
+  S.A=[S.A[0]+mt*d[0],S.A[1]+mt*d[1]]; S.B[0]-=mt;   // tacka ose pomerena naspram predmeta (klizac rotira oko nje)
+  norm(S,P);
+  // ako bi osa 3x4 (ocitana sa fotografije) dodirnula ili presekla trecu projekciju, pomeri je paralelno na razmak 0.6
+  const wmin=Math.min(...P.map(p=>coords(S,p).w)), n4=dirs(S).n4; S.shift4=0;
+  if(wmin<.6){S.shift4=.6-wmin;S.B=[S.B[0]+n4[0]*S.shift4,S.B[1]+n4[1]*S.shift4];}
+  return S;
+}
+//TASKS-END
+
+const SIMPLE={
+  tacka:{ime:'Tačka',pts:[[0,0,0]],edges:[],def:[3.5,2.5,3.5]},
+  duz:{ime:'Duž',pts:[[0,0,0],[-1,2,-2]],edges:[[0,1]],def:[3.5,1.5,3.5]},
+  piramida:{ime:'Piramida',pts:[[0,0,0],[2,0,0],[2,2,0],[0,2,0],[1,1,2.4]],edges:[[0,1],[1,2],[2,3],[3,0],[0,4],[1,4],[2,4],[3,4]],def:[1.8,1,0.8]}
+};
+const COL={p1:'#64748b',p2:'#2563eb',p3:'#0d9488',p4:'#7c3aed',z:'#ea580c',s:'#db2777',ink:'#0f172a',g:'#94a3b8'};
+const HP=Math.PI/2, RAD=Math.PI/180, PR=n=>'′'.repeat(n);
+const STEPS=['zad','osa3','ord3','pren3','spoj3','osa4','ord4','pren4','spoj4'];
+const st={O:null,k:0,f:0,off:[0,0,0],act:0,yaw:-0.6,pitch:0.42,zoom:1,box:null,base:1,S:null,xf:null,list:false,
+  quiz:{on:false,done:new Set(),msg:'',miss:null}};
+const $=id=>document.getElementById(id);
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)), ss=t=>t*t*(3-2*t);
+const lerp3=(p,q,f)=>[p[0]+(q[0]-p[0])*f,p[1]+(q[1]-p[1])*f,p[2]+(q[2]-p[2])*f];
+
+function mkObj(name){
+  if(SIMPLE[name]){const o=SIMPLE[name];return {name,ime:o.ime,pts:o.pts,lab:o.pts.map((_,i)=>''+(i+1)),edges:o.edges,def:o.def,body:null,task:null};}
+  const z=ZAD[name],ids=Object.keys(z.V).map(Number).sort((a,b)=>a-b),ix={}; ids.forEach((id,i)=>ix[id]=i);
+  return {name,ime:z.ime,pts:ids.map(id=>z.V[id]),lab:ids.map(String),edges:z.E.map(([a,b])=>[ix[a],ix[b]]),def:[0,0,0],body:z.body,task:z};
+}
+const pts=()=>st.O.pts.map(p=>add(p,st.off));
+const stepList=()=>st.O.edges.length?STEPS:STEPS.filter(s=>!s.startsWith('spoj'));
+const stepId=()=>stepList()[st.k];
+function flagsOf(id){const i=STEPS.indexOf(id);return {n3:i>=1,ord3:i>=2,pt3:i>=3,ed3:i>=4,n4:i>=5,ord4:i>=6,pt4:i>=7,ed4:i>=8,only3:i===2,only4:i===6,qz:0};}
+const FULL=flagsOf('spoj4');
+function flags(){const f=flagsOf(stepId()); if(st.quiz.on)f.qz=quizPlane(); return f;}
+const quizPlane=()=>stepId()==='pren3'?3:stepId()==='pren4'?4:0;
+function resetQuiz(){st.quiz={on:false,done:new Set(),msg:'',miss:null};}
+
+function defaultS(base){
+  return base===2?{base:2,A:[7,2.5],th:-75*RAD,B:[0,6.8],ps:-10*RAD}:{base:1,A:[7,-2.5],th:75*RAD,B:[0,6.8],ps:-10*RAD};
+}
+function resetObj(name){
+  st.O=mkObj(name); st.off=st.O.def.slice(); st.act=0; st.box=null; st.cam=null; st.visKey=''; resetQuiz();
+  if(st.O.task){st.S=setupTask(st.O.task,pts());st.base=st.S.base;} else st.S=defaultS(st.base);
+  st.k=Math.min(st.k,stepList().length-1);
+}
+function angles(fl){
+  const ph=[]; if(fl.n4)ph.push('c'); if(fl.n3)ph.push('b'); ph.push('a');
+  const o={a:0,b:0,c:0}; ph.forEach((k,i)=>o[k]=ss(clamp(st.f*ph.length-i))*HP); return o;
+}
+function ext(C,fl){
+  const S=st.S,{d,e}=dirs(S),B=S.B;
+  const rng=a=>{const lo=Math.min(...a)-1.3,hi=Math.max(...a)+1.3,c=(lo+hi)/2,h=Math.max((hi-lo)/2,3);return [c-h,c+h];};
+  const [t0,t1]=rng(C.map(k=>k.t)),[r0,r1]=rng(C.map(k=>k.r));
+  const hmax=Math.max(...C.map(k=>k.h)), smax=Math.max(0,...C.map(k=>k.s));
+  const a4=[[B[0]+r0*e[0],B[1]+r0*e[1]],[B[0]+r1*e[0],B[1]+r1*e[1]]];
+  let T0=t0,T1=t1,H1=Math.max(hmax+1,3);
+  if(fl.n4){T0=Math.min(t0,a4[0][0]-.3,a4[1][0]-.3);T1=Math.max(t1,a4[0][0]+.3,a4[1][0]+.3);H1=Math.max(H1,a4[0][1]+.3,a4[1][1]+.3);}
+  const ax=fl.n3?[[S.A[0]+T0*d[0],S.A[1]+T0*d[1]],[S.A[0]+T1*d[0],S.A[1]+T1*d[1]]]:[[0,0],[0,0]];
+  const xs=C.map(k=>k.x);
+  const u0=Math.min(-.5,Math.min(...xs)-1.5,ax[0][0]-.3,ax[1][0]-.3), u1=Math.max(8.5,Math.max(...xs)+1.5,ax[0][0]+.3,ax[1][0]+.3);
+  let y1=Math.max(6.5,Math.max(...C.map(k=>k.y))+1), z1=Math.max(7,Math.max(...C.map(k=>k.z))+1);
+  if(S.base===1)y1=Math.max(y1,-ax[0][1]+.3,-ax[1][1]+.3); else z1=Math.max(z1,ax[0][1]+.3,ax[1][1]+.3);
+  return {T0,T1,H1,r0,r1,K1:Math.max(smax+1,3),u0,u1,y1,z1,hmax,smax};
+}
+
+// vidljivost ivica po projekcijama (kes dok se geometrija ne promeni)
+function visAll(){
+  const O=st.O; if(!O.body)return {};
+  const S=st.S,key=[O.name,S.base,S.A,S.th,S.B,S.ps,S.f3,S.f4].join('|');
+  if(st.visKey===key)return st.vis;
+  const F=frames(S,0,0,0),P=pts(),R=bodyR(P);
+  const run=v=>O.edges.map(([i,j])=>edgeRuns(O.body,P[i],P[j],v,R));
+  st.vis={1:run([0,0,1]),2:run([0,1,0]),3:run(F.M3),4:run(mul(F.N4,-1))}; st.visKey=key; return st.vis;
+}
+function bodyR(P){let lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9];for(const p of P)for(let i=0;i<3;i++){lo[i]=Math.min(lo[i],p[i]);hi[i]=Math.max(hi[i],p[i]);}return Math.hypot(...sub(hi,lo))+.2;}
+
+function buildScene(a,b,c,space,fl,V,camV){
+  const S=st.S,F=frames(S,a,b,c),O=st.O, sc={quads:[],L0:[],L1:[],L2:[],L3:[],dots:[],texts:[]};
+  const P=pts(), C=P.map(p=>coords(S,p)), X=ext(C,fl), kept=S.base, many=P.length>6;
+  const L=(lay,p,q,col,w=1.5,dash=null,al=1)=>sc[lay].push({p,q,col,w,dash,al});
+  const Dt=(p,i,tag,col,on,al=1)=>sc.dots.push({p,num:O.lab[i],tag,col,r:on?4.5:(many?2.4:3),al,on});
+  const edge=(pa,pb,runs,col,w,al=1)=>{
+    if(!runs){L('L2',pa,pb,col,w,null,al);return;}
+    for(const [f0,f1,h] of runs){const p=lerp3(pa,pb,f0),q=lerp3(pa,pb,f1); h?L('L1',p,q,col,w*.55,[4,4],al*.85):L('L2',p,q,col,w,null,al);}
+  };
+  // ravni
+  sc.quads.push({pts:[F.pi2(X.u0,0),F.pi2(X.u1,0),F.pi2(X.u1,X.z1),F.pi2(X.u0,X.z1)],col:COL.p2,name:'π2'});
+  sc.quads.push({pts:[F.pi1(X.u0,0),F.pi1(X.u1,0),F.pi1(X.u1,-X.y1),F.pi1(X.u0,-X.y1)],col:COL.p1,name:'π1'});
+  if(fl.n3)sc.quads.push({pts:[F.pi3(X.T0,0),F.pi3(X.T1,0),F.pi3(X.T1,X.H1),F.pi3(X.T0,X.H1)],col:COL.p3,name:'π3'});
+  if(fl.n4)sc.quads.push({pts:[F.pi4(X.r0,0),F.pi4(X.r1,0),F.pi4(X.r1,X.K1),F.pi4(X.r0,X.K1)],col:COL.p4,name:'π4'});
+  // ose
+  L('L3',F.pi2(X.u0,0),F.pi2(X.u1,0),COL.ink,2.2); sc.texts.push({p:F.pi2(X.u0,0),t:'1x2',col:COL.ink,dx:-6,dy:-8});
+  if(fl.n3){L('L3',F.pi3(X.T0,0),F.pi3(X.T1,0),COL.ink,2.2); sc.texts.push({p:F.pi3(X.T1,0),t:kept+'x3',col:COL.ink,dx:6,dy:-6});}
+  if(fl.n4){L('L3',F.pi4(X.r0,0),F.pi4(X.r1,0),COL.ink,2.2); sc.texts.push({p:F.pi4(X.r1,0),t:'3x4',col:COL.ink,dx:6,dy:-6});}
+  const p1=C.map(k=>F.pi1(k.x,-k.y)), p2=C.map(k=>F.pi2(k.x,k.z)), p3=C.map(k=>F.pi3(k.t,k.h)), p4=C.map(k=>F.pi4(k.r,k.s));
+  const pk=kept===1?p1:p2, pd=kept===1?p2:p1;
+  const hid=(pl,i)=>fl.qz===pl&&!st.quiz.done.has(i);
+  // ivice predmeta
+  O.edges.forEach(([i,j],n)=>{
+    edge(p1[i],p1[j],V[1]&&V[1][n],COL.p1,2); edge(p2[i],p2[j],V[2]&&V[2][n],COL.p2,2);
+    if(fl.ed3)edge(p3[i],p3[j],V[3]&&V[3][n],COL.p3,2); if(fl.ed4)edge(p4[i],p4[j],V[4]&&V[4][n],COL.p4,2);
+    if(space>0)edge(P[i],P[j],camV&&camV[n],COL.ink,2.4,space);
+  });
+  C.forEach((k,i)=>{
+    const on=i===st.act, show=on||!many, al=on?1:.3, w=on?3.2:1, lay=on?'L3':'L0';
+    const foot=F.pi2(k.x,0), Ff=F.pi3(k.t,0), G=F.pi4(k.r,0);
+    if(show){ L(lay,pd[i],foot,on?COL.z:COL.g,w,null,al);          // prvo rastojanje, u projekciji koja ispada
+              L('L0',pk[i],foot,COL.g,1,[4,4],al); }
+    if(fl.ord3){
+      if(show||fl.only3)L(on&&fl.pt3?'L3':'L0',pk[i],Ff,on&&fl.pt3?COL.s:COL.g,on&&fl.pt3?w:1,on&&fl.pt3?null:[4,4],on?1:(many?.35:.3));
+      if(fl.only3||(hid(3,i)&&on))L('L0',Ff,F.pi3(k.t,X.hmax+.7),on?COL.p3:COL.g,on?1.6:1,[2,4],on?1:.45);
+    }
+    if(fl.pt3&&!hid(3,i)&&show)L(lay,p3[i],Ff,on?COL.z:COL.g,w,null,al);
+    if(fl.ord4){
+      if(show||fl.only4)L('L0',p3[i],G,COL.g,1,[4,4],on?1:(many?.35:.3));
+      if(fl.only4||(hid(4,i)&&on))L('L0',G,F.pi4(k.r,X.smax+.7),on?COL.p4:COL.g,on?1.6:1,[2,4],on?1:.45);
+    }
+    if(fl.pt4&&!hid(4,i)&&show)L(lay,p4[i],G,on?COL.s:COL.g,w,null,al);
+    if(space>0){
+      const sa=space*(on?1:.25);
+      if(show){
+        L('L0',P[i],pk[i],on?COL.z:COL.g,on?2.2:1,[6,4],sa);
+        L('L0',P[i],pd[i],COL.g,1,[3,4],sa);
+        if(fl.pt3&&!hid(3,i))L('L0',P[i],p3[i],on?COL.s:COL.g,on?2.2:1,[6,4],sa);
+        if(fl.pt4&&!hid(4,i))L('L0',P[i],p4[i],COL.g,1,[3,4],sa);
+      }
+      Dt(P[i],i,0,COL.ink,on,space);
+    }
+    Dt(p1[i],i,1,COL.p1,on); Dt(p2[i],i,2,COL.p2,on);
+    if(fl.pt3&&!hid(3,i))Dt(p3[i],i,3,COL.p3,on); if(fl.pt4&&!hid(4,i))Dt(p4[i],i,4,COL.p4,on);
+  });
+  return sc;
+}
+
+function render(cv,sc,proj,o){
+  const ctx=cv.getContext('2d'), dpr=window.devicePixelRatio||1, many=st.O.pts.length>6;
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cv.clientWidth,cv.clientHeight);
+  if(o.quads){
+    const qs=sc.quads.map(q=>{const pp=q.pts.map(proj);return {q,pp,d:pp.reduce((s,p)=>s+p[2],0)/4};}).sort((x,y)=>x.d-y.d);
+    for(const {q,pp} of qs){
+      ctx.beginPath(); pp.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath();
+      ctx.globalAlpha=.09; ctx.fillStyle=q.col; ctx.fill(); ctx.globalAlpha=.5; ctx.strokeStyle=q.col; ctx.lineWidth=1; ctx.stroke();
+      ctx.globalAlpha=.9; ctx.fillStyle=q.col; ctx.font='600 13px Segoe UI,sans-serif';
+      const m=[(pp[2][0]*.9+pp[0][0]*.1),(pp[2][1]*.9+pp[0][1]*.1)]; ctx.fillText(q.name,m[0]-8,m[1]+4);
+    }
+  }
+  ctx.lineCap='round';
+  for(const l of [...sc.L0,...sc.L1,...sc.L2,...sc.L3]){
+    const a=proj(l.p),b=proj(l.q); ctx.globalAlpha=l.al; ctx.strokeStyle=l.col; ctx.lineWidth=l.w; ctx.setLineDash(l.dash||[]);
+    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  const txt=(t,x,y,col)=>{ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.strokeText(t,x,y);ctx.fillStyle=col;ctx.fillText(t,x,y);};
+  // tacke koje se poklapaju dobijaju jednu zajednicku oznaku, kao na listu: 3,8,11″
+  const G=new Map();
+  for(const d of sc.dots){const p=proj(d.p),key=d.tag+'|'+Math.round(p[0]*2)+'|'+Math.round(p[1]*2);
+    let g=G.get(key); if(!g){g={p,nums:[],tag:d.tag,col:d.col,r:d.r,al:d.al,on:false};G.set(key,g);}
+    g.nums.push(d.num); if(d.on){g.on=true;g.r=Math.max(g.r,d.r);} g.al=Math.max(g.al,d.al);}
+  const out=[];
+  for(const g of [...G.values()].sort((a,b)=>a.on-b.on)){
+    const p=g.p; ctx.globalAlpha=g.al; ctx.fillStyle=g.col; ctx.beginPath(); ctx.arc(p[0],p[1],g.r,0,7); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke();
+    ctx.font=(g.on?'700 ':'600 ')+(many&&!g.on?11:13)+'px Segoe UI,sans-serif';
+    if(!(o.quads&&many&&g.tag>0&&!g.on))txt((o.quads&&many&&g.tag>0?st.O.lab[st.act]:g.nums.join(','))+PR(g.tag),p[0]+6,p[1]-5,g.on&&g.tag===0?COL.z:g.col);
+    out.push({x:p[0],y:p[1],nums:g.nums});
+  }
+  ctx.globalAlpha=1; ctx.font='600 13px Segoe UI,sans-serif';
+  for(const t of sc.texts){const p=proj(t.p); txt(t.t,p[0]+t.dx-(t.dx<0?22:0),p[1]+t.dy,t.col);}
+  return out;
+}
+
+function fit(cv){const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);} return [w,h];}
+
+// kljucne tacke aktivne tacke u crtezu (2D)
+function keyPts(i){
+  const S=st.S,F=frames(S,HP,HP,HP),k=coords(S,pts()[i]),f=p=>[p[0],p[2]];
+  const p1=f(F.pi1(k.x,-k.y)),p2=f(F.pi2(k.x,k.z));
+  return {k,p1,p2,pk:S.base===1?p1:p2,pd:S.base===1?p2:p1,p3:f(F.pi3(k.t,k.h)),p4:f(F.pi4(k.r,k.s)),foot:[k.x,0],Ff:f(F.pi3(k.t,0)),G:f(F.pi4(k.r,0)),
+    a3:[f(F.pi3(0,0)),f(F.pi3(1,0))],a4:[f(F.pi4(0,0)),f(F.pi4(1,0))]};
+}
+let last2=null;
+function draw(){
+  norm(st.S,pts());
+  const fl=flags(), {a,b,c}=angles(fl), c3=$('c3'), c2=$('c2'), V=visAll();
+  const [w3,h3]=fit(c3), [w2,h2]=fit(c2);
+  // crtez: sve oboreno; okvir se racuna iz punog resenja da se raspored ne pomera izmedju koraka
+  const flat=buildScene(HP,HP,HP,0,fl,V), full=buildScene(HP,HP,HP,0,FULL,V);
+  const bx=st.box||{u0:1e9,u1:-1e9,v0:1e9,v1:-1e9};
+  for(const l of [...full.L0,...full.L2,...full.L3])for(const p of [l.p,l.q]){bx.u0=Math.min(bx.u0,p[0]-.8);bx.u1=Math.max(bx.u1,p[0]+1.2);bx.v0=Math.min(bx.v0,p[2]-.8);bx.v1=Math.max(bx.v1,p[2]+.8);}
+  st.box=bx;
+  const cu=(bx.u0+bx.u1)/2, cv_=(bx.v0+bx.v1)/2;
+  const S2=Math.min(w2/(bx.u1-bx.u0),(h2-24)/(bx.v1-bx.v0));
+  const to2=p=>[w2/2+(p[0]-cu)*S2,h2/2+12-(p[2]-cv_)*S2,0];
+  const dots=render(c2,flat,to2,{quads:false});
+  last2={S2,dots,toW:(x,y)=>[(x-w2/2)/S2+cu,-(y-h2/2-12)/S2+cv_],toS:q=>to2([q[0],0,q[1]])};
+  overlay2(c2.getContext('2d'));
+  // 3D: kamera se podesava prema celoj sceni (sve ravni), u oborenom stanju prelazi u pogled spreda
+  if(!st.cam){
+    const q0=buildScene(0,0,0,0,FULL,{}).quads.flatMap(q=>q.pts); let lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9];
+    for(const p of q0)for(let i=0;i<3;i++){lo[i]=Math.min(lo[i],p[i]);hi[i]=Math.max(hi[i],p[i]);}
+    st.cam={c:mul(add(lo,hi),.5),d:Math.hypot(...sub(hi,lo))};
+  }
+  const g=a/HP, yaw=st.yaw*(1-g), pit=st.pitch*(1-g);
+  const Sflat=Math.min(w3/(bx.u1-bx.u0),(h3-24)/(bx.v1-bx.v0));
+  const S3=(Math.min(w3,h3*1.3)/(st.cam.d*.98)*(1-g)+Sflat*g)*st.zoom;
+  const pv0=st.cam.c, pv=[pv0[0]*(1-g)+cu*g,pv0[1]*(1-g),pv0[2]*(1-g)+cv_*g];
+  const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pit),sp=Math.sin(pit);
+  const proj=p=>{const x=p[0]-pv[0],y=p[1]-pv[1],z=p[2]-pv[2],x1=x*cy+y*sy,y1=-x*sy+y*cy;
+    return [w3/2+x1*S3,h3/2+12-(z*cp-y1*sp)*S3,y1*cp+z*sp];};
+  const space=clamp(1-st.f*8);
+  let camV=null;
+  if(space>0&&st.O.body){const P=pts(),R=bodyR(P),v=[-sy*cp,cy*cp,sp]; camV=st.O.edges.map(([i,j])=>edgeRuns(st.O.body,P[i],P[j],v,R,14));}
+  render(c3,buildScene(a,b,c,space,fl,V,camV),proj,{quads:true});
+  info();
+}
+function overlay2(ctx){
+  const id=stepId(), kp=keyPts(st.act), toS=last2.toS;
+  if(st.xf!==null&&(id==='pren3'||id==='pren4')){
+    const [s0,s1,d0,d1,col]=id==='pren3'?[kp.foot,kp.pd,kp.Ff,kp.p3,COL.z]:[kp.Ff,kp.pk,kp.G,kp.p4,COL.s];
+    const L=Math.hypot(s1[0]-s0[0],s1[1]-s0[1]);
+    if(L>1e-6){
+      const e=ss(st.xf), a0=Math.atan2(s1[1]-s0[1],s1[0]-s0[0]), a1=Math.atan2(d1[1]-d0[1],d1[0]-d0[0]); let da=a1-a0;
+      while(da>Math.PI)da-=2*Math.PI; while(da<-Math.PI)da+=2*Math.PI;
+      const b=[s0[0]+(d0[0]-s0[0])*e,s0[1]+(d0[1]-s0[1])*e], an=a0+da*e, t=[b[0]+L*Math.cos(an),b[1]+L*Math.sin(an)];
+      const B=toS(b),T=toS(t);
+      ctx.save(); ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=5; ctx.globalAlpha=.9; ctx.lineCap='round';
+      ctx.shadowColor='rgba(0,0,0,.25)'; ctx.shadowBlur=6;
+      ctx.beginPath(); ctx.moveTo(B[0],B[1]); ctx.lineTo(T[0],T[1]); ctx.stroke();
+      for(const q of [B,T]){ctx.beginPath();ctx.arc(q[0],q[1],5,0,7);ctx.fill();}
+      ctx.restore();
+    }
+  }
+  if(st.quiz.on&&st.quiz.miss){
+    const m=toS(st.quiz.miss); ctx.save(); ctx.strokeStyle='#b91c1c'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(m[0]-6,m[1]-6); ctx.lineTo(m[0]+6,m[1]+6); ctx.moveTo(m[0]+6,m[1]-6); ctx.lineTo(m[0]-6,m[1]+6); ctx.stroke(); ctx.restore();
+  }
+}
+
+function info(){
+  const S=st.S,F=frames(S,HP,HP,HP),P=pts(),k=coords(S,P[st.act]),n=st.O.lab[st.act],f2=v=>v.toFixed(2),id=stepId(),fl=flags();
+  const K=S.base,Dp=3-K,ax=K+'x3',nk=n+PR(K),nd=n+PR(Dp);
+  const q2=F.pi2(k.x,k.z),q1=F.pi1(k.x,-k.y),q3=F.pi3(k.t,k.h),q4=F.pi4(k.r,k.s),qk=K===1?q1:q2,qd=K===1?q2:q1;
+  const d1a=distPL(qd,[0,0,0],[1,0,0]), d1b=distPL(q3,F.pi3(0,0),F.pi3(1,0));
+  const d2a=distPL(qk,F.pi3(0,0),F.pi3(1,0)), d2b=distPL(q4,F.pi4(0,0),F.pi4(1,0));
+  const pn=PR(K)+(K===1?' (prva)':' (druga)'), h1=K===1?'visina z (rastojanje od π1)':'dubina y (rastojanje od π2)';
+  const C=P.map(p=>coords(S,p)), far=(key)=>{const m=Math.max(...C.map(c=>c[key]));return st.O.lab.filter((_,i)=>C[i][key]>m-1e-6).join(', ');};
+  const T={
+    zad:['Zadato · dve projekcije',`<p>Predmet je zadat prvom projekcijom (′, pogled odozgo na π1) i drugom (″, pogled spreda na π2). Par ${n}′ i ${n}″ leži na istoj ordinali, upravnoj na 1x2.</p><p><b class="z">Narandžasto</b> je ${h1} tačke ${n}: na crtežu je to rastojanje ${nd} od ose 1x2. Ovo rastojanje ćeš preneti u treću projekciju.</p>`],
+    osa3:[`Osa ${ax} · π3 zamenjuje π${Dp}`,`<p>Osa ${ax} je povučena kroz projekciju ${pn}, što znači: <b>π${K} ostaje</b>, a nova ravan π3 stoji upravno na nju duž te ose. π${Dp} ispada, ali iz nje uzimaš rastojanja.</p><p>Čitanje oznake ose: prvi broj je ravan koja ostaje, drugi je nova ravan.</p>`],
+    ord3:['Ordinale ka novoj osi',`<p>Iz svake tačke projekcije ${pn} povuci ordinalu <b>upravno na ${ax}</b> i produži je preko ose. Treća projekcija tačke mora biti negde na toj liniji, jer je zrak projektovanja upravan na π3.</p><p>Položaj duž ose je time rešen. Ostaje samo: koliko daleko od ose.</p>`],
+    pren3:['Prenesi rastojanje u treću projekciju',`<p>Šestarom uzmi rastojanje <b class="z">${nd} do ose 1x2</b> i nanesi ga po ordinali <b class="z">od ose ${ax}</b>, na stranu suprotnu od projekcije ${pn}. Dobijaš ${n}${PR(3)}.</p><p>Zašto baš to rastojanje: π${Dp} i π3 obe stoje upravno na π${K}, pa obe pokazuju rastojanje tačke od π${K} u pravoj veličini.</p>`],
+    spoj3:['Spoji tačke i odredi vidljivost',`<p>Spoji tačke istim ivicama kao u zadatim projekcijama. Kontura (spoljni obris) je uvek vidljiva.</p><p><b>Vidljivost:</b> gledaš upravno na π3, sa strane predmeta. Šta ti je bliže, vidi se u projekciji ${pn}: tačka <b>najdalja od ose ${ax}</b> najbliža je posmatraču. Ovde: ${far('s')}. Ivice iza tela su isprekidane.</p>`],
+    osa4:[`Osa 3x4 · π4 zamenjuje π${K}`,`<p>Osa 3x4 je povučena kroz treću projekciju: <b>π3 ostaje</b>, π4 stoji upravno na π3. Sada ispada π${K}, pa se rastojanja uzimaju iz projekcije ${pn}, merena od ose ${ax}.</p><p><b class="s">Roze</b> je rastojanje tačke od π3: na crtežu ${nk} do ose ${ax}.</p>`],
+    ord4:['Ordinale ka osi 3x4',`<p>Iz svake tačke treće projekcije povuci ordinalu <b>upravno na 3x4</b> i produži preko ose. Isti postupak kao malopre, samo je sada polazna projekcija treća.</p>`],
+    pren4:['Prenesi rastojanje u četvrtu projekciju',`<p>Šestarom uzmi rastojanje <b class="s">${nk} do ose ${ax}</b> i nanesi ga <b class="s">od ose 3x4</b> po ordinali. Dobijaš ${n}${PR(4)}.</p><p>Uvek isto: rastojanje uzimaš iz projekcije koju izbacuješ, mereno od stare ose. Preskačeš jednu projekciju unazad.</p>`],
+    spoj4:['Spoji tačke i odredi vidljivost',`<p>Spoji iste ivice. <b>Vidljivost:</b> gledaš upravno na π4. Tačka koja je u trećoj projekciji <b>najdalja od ose 3x4</b> najbliža je posmatraču i sigurno je vidljiva. Ovde: ${far('w')}.</p><p>Provera crteža: paralelne ivice tela ostaju paralelne u svakoj projekciji.</p>`]};
+  $('tTitle').textContent=`${st.k+1}/${stepList().length} · ${T[id][0]}`; $('tBody').innerHTML=T[id][1];
+  let h='';
+  if(fl.pt3)h+=`<div class="eq"><span class="chip cz">d(${nd}, 1x2) = ${f2(d1a)}</span>=<span class="chip cz">d(${n}${PR(3)}, ${ax}) = ${f2(d1b)}</span><span class="ok">${Math.abs(d1a-d1b)<1e-9?'✓ isto':'✗'}</span></div>`;
+  else h+=`<div class="eq"><span class="chip cz">d(${nd}, 1x2) = ${f2(d1a)}</span></div>`;
+  if(fl.pt4)h+=`<div class="eq"><span class="chip cs">d(${nk}, ${ax}) = ${f2(d2a)}</span>=<span class="chip cs">d(${n}${PR(4)}, 3x4) = ${f2(d2b)}</span><span class="ok">${Math.abs(d2a-d2b)<1e-9?'✓ isto':'✗'}</span></div>`;
+  else if(fl.pt3)h+=`<div class="eq"><span class="chip cs">d(${nk}, ${ax}) = ${f2(d2a)}</span><span class="note">čeka četvrtu projekciju</span></div>`;
+  if(st.quiz.on)h='';
+  $('eqs').innerHTML=h;
+  let x='';
+  if(st.O.name==='duz'){
+    const hy=Math.hypot,c=C;
+    const tl=hy(...sub(P[0],P[1])), l1=hy(c[0].x-c[1].x,c[0].y-c[1].y), l2=hy(c[0].x-c[1].x,c[0].z-c[1].z),
+          l3=hy(c[0].t-c[1].t,c[0].h-c[1].h), l4=hy(c[0].r-c[1].r,c[0].s-c[1].s);
+    x=`Dužina duži: prava ${f2(tl)} · u π1 ${f2(l1)} · u π2 ${f2(l2)}`+(fl.pt3?` · u π3 <b>${f2(l3)}</b>${Math.abs(l3-tl)<.005?' = prava veličina':''}`:'')+(fl.pt4?` · u π4 <b>${f2(l4)}</b>${l4<.005?' = duž se vidi kao tačka':''}`:'');
+  }
+  $('extra').innerHTML=x;
+  const qp=quizPlane(); $('quiz').classList.toggle('on',!!qp);
+  if(qp){
+    $('bQuiz').textContent=st.quiz.on?'Završi vežbu (prikaži sve)':'Vežbaj: sam prenesi tačke';
+    $('bQuiz').classList.toggle('on',st.quiz.on); $('bXf').style.display=st.quiz.on?'none':'';
+    $('qCnt').textContent=st.quiz.on?`preneto ${st.quiz.done.size}/${P.length}`:'';
+    $('qMsg').innerHTML=st.quiz.on?(st.quiz.msg||`Klikni na crtežu gde ide <b>${n}${PR(qp)}</b>. Tačkasta linija je ordinala; rastojanje proceni prema ${qp===3?nd+' od 1x2':nk+' od '+ax}.`):'';
+  }
+}
+
+function ui(){
+  const O=st.O, sl=stepList(), task=!!O.task;
+  document.querySelectorAll('#gObj button').forEach(b=>b.classList.toggle('on',b.dataset.obj===O.name));
+  document.querySelectorAll('#gBase button').forEach(b=>{b.classList.toggle('on',+b.dataset.base===st.S.base);b.disabled=task;});
+  const nm={zad:'Zadato',osa3:'Osa '+st.S.base+'x3',ord3:'Ordinale',pren3:'Prenesi',spoj3:'Spoji',osa4:'Osa 3x4',ord4:'Ordinale',pren4:'Prenesi',spoj4:'Spoji'};
+  $('gStep').innerHTML=`<button class="nav" data-d="-1" ${st.k===0?'disabled':''}>◀ Nazad</button>`+
+    sl.map((id,i)=>`<button class="st ${i===st.k?'on':''} ${/3$/.test(id)&&id!=='osa3'||id==='osa3'?'g3':/4$/.test(id)?'g4':''}" data-k="${i}">${i+1} · ${nm[id]}</button>`).join('')+
+    `<button class="nav go" data-d="1" ${st.k===sl.length-1?'disabled':''}>Dalje ▶</button>`;
+  const set=(s,o,v,t)=>{$(s).value=v;$(o).textContent=t;};
+  set('sF','oF',st.f,Math.round(st.f*100)+'%'); set('sX','oX',st.off[0],st.off[0].toFixed(1)); set('sY','oY',st.off[1],st.off[1].toFixed(1)); set('sZ','oZ',st.off[2],st.off[2].toFixed(1));
+  let td=st.S.th/RAD; while(td>180)td-=180; while(td<-90)td+=180; const pd=st.S.ps/RAD;
+  set('sT','oT',td,Math.round(td)+'°'); set('sP','oP',pd,Math.round(pd)+'°');
+  const fl=flags(); $('sT').disabled=!fl.n3; $('sP').disabled=!fl.n4; $('lT').textContent='ugao ose '+st.S.base+'x3'; $('lP').textContent='ugao 3x4 prema '+st.S.base+'x3';
+  $('gXYZ').style.display=task?'none':''; $('gPre').style.display=O.name==='duz'?'flex':'none';
+  $('bList').style.display=task&&LISTOVI?'':'none'; if(!LISTOVI)st.list=false;
+  $('nTask').textContent=task?'Mere tela i položaj osa očitani su sa fotografije lista, pa su odnosi približni. Numeracija tačaka prati list. Klizači menjaju ugao osa; dugme zadatka vraća zadati položaj.':'';
+  $('gAct').innerHTML=O.pts.length>1?'<span>Prati tačku</span>'+O.lab.map((l,i)=>`<button data-a="${i}" class="${i===st.act?'on':''}" ${st.quiz.on&&st.quiz.done.has(i)?'style="border-color:#15803d;color:'+(i===st.act?'#fff':'#15803d')+'"':''}>${l}</button>`).join(''):'';
+  $('bFold').textContent=st.f>0.5?'◀ Vrati u prostor':'▶ Obori ravni u crtež';
+  const L=$('list'); L.classList.toggle('on',task&&st.list); $('bList').classList.toggle('on',task&&st.list);
+  $('h3d').textContent=task&&st.list?'List sa zadatkom':'3D prostor · vuci mišem, točkić zumira';
+  if(task&&st.list&&L.dataset.for!==O.name){L.dataset.for=O.name;L.innerHTML=O.task.list.map(([src,cap])=>`<figure><img src="${src}" alt="${cap}"><figcaption>${cap}</figcaption></figure>`).join('');}
+  draw();
+}
+
+let anim=null, anim2=null;
+function animate(to){
+  cancelAnimationFrame(anim); const fl=flags(),np=fl.n4?3:fl.n3?2:1,from=st.f,t0=performance.now(),dur=1400*np+800;
+  const tick=t=>{const k=clamp((t-t0)/dur); st.f=from+(to-from)*k; ui(); if(k<1)anim=requestAnimationFrame(tick);};
+  anim=requestAnimationFrame(tick);
+}
+function xfer(){ // animacija prenosa rastojanja sestarom
+  cancelAnimationFrame(anim2); if(!quizPlane()||st.quiz.on){st.xf=null;return;}
+  const t0=performance.now();
+  const tick=t=>{const k=(t-t0)/1500; st.xf=clamp(k/.8); draw(); if(k<1)anim2=requestAnimationFrame(tick); else{st.xf=null;draw();}};
+  anim2=requestAnimationFrame(tick);
+}
+function go(k){const n=stepList().length; k=clamp(k,0,n-1); if(k===st.k)return; st.k=k; resetQuiz(); st.xf=null; ui(); xfer();}
+function setAct(i){const n=st.O.pts.length; st.act=((i%n)+n)%n; st.quiz.msg=''; st.quiz.miss=null; ui(); xfer();}
+function quizClick(X,Z){
+  const qp=quizPlane(), kp=keyPts(st.act), tgt=qp===3?kp.p3:kp.p4, foot=qp===3?kp.Ff:kp.G, a=qp===3?kp.a3:kp.a4;
+  const axd=[a[1][0]-a[0][0],a[1][1]-a[0][1]], D=Math.hypot(tgt[0]-foot[0],tgt[1]-foot[1]);
+  const nr=D>1e-6?[(tgt[0]-foot[0])/D,(tgt[1]-foot[1])/D]:[-axd[1],axd[0]];
+  const tol=Math.max(.2,11/last2.S2), err=[X-tgt[0],Z-tgt[1]], ea=err[0]*axd[0]+err[1]*axd[1], dc=(X-foot[0])*nr[0]+(Z-foot[1])*nr[1];
+  const n=st.O.lab[st.act], K=st.S.base, src=qp===3?`${n}${PR(3-K)} do ose 1x2`:`${n}${PR(K)} do ose ${K}x3`, axn=qp===3?K+'x3':'3x4';
+  if(Math.hypot(...err)<tol){
+    st.quiz.done.add(st.act); st.quiz.miss=null;
+    const nxt=st.O.pts.findIndex((_,i)=>!st.quiz.done.has(i));
+    if(nxt<0){st.quiz.msg=`<span class="ok">✓ Sve tačke su prenete.</span> Idi na „Dalje“ da ih spojiš.`;}
+    else{st.quiz.msg=`<span class="ok">✓ Tačno, ${n}${PR(qp)} je na mestu.</span> Sledeća: <b>${st.O.lab[nxt]}${PR(qp)}</b>.`;st.act=nxt;}
+  }else{
+    st.quiz.miss=[X,Z];
+    if(Math.abs(ea)>tol)st.quiz.msg=`<span class="bad">✗ Nisi na ordinali.</span> Ordinala ide iz ${n}${PR(qp===3?K:3)} upravno na osu ${axn} (tačkasta linija).`;
+    else if(Math.abs(-dc-D)<tol&&D>tol)st.quiz.msg=`<span class="bad">✗ Dobro rastojanje, pogrešna strana ose.</span> Nova projekcija ide preko ose, na stranu suprotnu od polazne projekcije.`;
+    else st.quiz.msg=`<span class="bad">✗ Na ordinali si, ali rastojanje nije dobro.</span> Naneo si ${Math.abs(dc).toFixed(2)}, a treba ${D.toFixed(2)}: toliko je ${src}.`;
+  }
+  ui();
+}
+
+$('gZad').innerHTML=Object.keys(ZAD).map(k=>`<button data-obj="${k}" title="${ZAD[k].ime}">${ZAD[k].ime}</button>`).join('');
+$('gObj').onclick=e=>{const o=e.target.dataset.obj; if(o){resetObj(o);st.f=0;ui();}};
+$('gBase').onclick=e=>{const b=+e.target.dataset.base; if(b&&!st.O.task){st.base=b;resetObj(st.O.name);ui();}};
+$('gStep').onclick=e=>{const t=e.target.closest('button'); if(!t)return; if(t.dataset.k!==undefined)go(+t.dataset.k); else if(t.dataset.d)go(st.k+ +t.dataset.d);};
+$('gAct').onclick=e=>{const a=e.target.dataset.a; if(a!==undefined)setAct(+a);};
+$('bFold').onclick=()=>animate(st.f>0.5?0:1);
+$('bView').onclick=()=>{st.yaw=-0.6;st.pitch=0.42;st.zoom=1;st.box=null;st.cam=null;ui();};
+$('bList').onclick=()=>{st.list=!st.list;ui();};
+$('bQuiz').onclick=()=>{const on=!st.quiz.on; resetQuiz(); st.quiz.on=on; st.xf=null; if(on)st.act=0; ui();};
+$('bXf').onclick=xfer;
+$('sF').oninput=e=>{cancelAnimationFrame(anim);st.f=+e.target.value;ui();};
+$('sX').oninput=e=>{st.off[0]=+e.target.value;ui();};
+$('sY').oninput=e=>{st.off[1]=+e.target.value;ui();};
+$('sZ').oninput=e=>{st.off[2]=+e.target.value;ui();};
+$('sT').oninput=e=>{st.S.th=+e.target.value*RAD;st.cam=null;ui();};
+$('sP').oninput=e=>{st.S.ps=+e.target.value*RAD;st.cam=null;ui();};
+$('bPar').onclick=()=>{ // osa paralelna sa projekcijom duzi na ravan koja ostaje
+  const P=pts(),bc=p=>st.S.base===2?[p[0],p[2]]:[p[0],-p[1]],a=bc(P[0]),b=bc(P[1]);
+  let th=Math.atan2(b[1]-a[1],b[0]-a[0]); th=((th%Math.PI)+Math.PI)%Math.PI;
+  st.S.th=th; if(st.k<3)st.k=Math.min(4,stepList().length-1); st.box=null; st.cam=null; ui();
+};
+$('bPerp').onclick=()=>{ // osa 3x4 upravna na trecu projekciju duzi
+  st.k=stepList().length-1; norm(st.S,pts());
+  const c=pts().map(p=>coords(st.S,p)); let ps=Math.atan2(c[1].h-c[0].h,c[1].t-c[0].t)+HP;
+  while(ps>HP)ps-=Math.PI; while(ps<=-HP)ps+=Math.PI; st.S.ps=ps;
+  const n4=[-Math.sin(ps),Math.cos(ps)], cen=[(c[0].t+c[1].t)/2,(c[0].h+c[1].h)/2];
+  const m=Math.max(...c.map(k=>(k.t-cen[0])*n4[0]+(k.h-cen[1])*n4[1]));
+  st.S.B=[cen[0]+n4[0]*(m+2),cen[1]+n4[1]*(m+2)]; st.box=null; st.cam=null; ui();
+};
+// orbit
+(()=>{const c=$('c3'); let d=null;
+  c.onpointerdown=e=>{d=[e.clientX,e.clientY];c.setPointerCapture(e.pointerId);c.style.cursor='grabbing';};
+  c.onpointermove=e=>{if(!d)return; st.yaw+=(e.clientX-d[0])*.008; st.pitch=clamp(st.pitch+(e.clientY-d[1])*.008,-.3,1.5); d=[e.clientX,e.clientY]; draw();};
+  c.onpointerup=c.onpointercancel=()=>{d=null;c.style.cursor='grab';};
+  c.addEventListener('wheel',e=>{e.preventDefault();st.zoom=clamp(st.zoom*(e.deltaY<0?1.1:.9),.4,5);draw();},{passive:false});
+})();
+// crtez: klik bira tacku, a u vezbi postavlja novu projekciju
+$('c2').onclick=e=>{
+  if(!last2)return; const r=$('c2').getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  if(st.quiz.on&&quizPlane()){const w=last2.toW(x,y);quizClick(w[0],w[1]);return;}
+  let best=null,bd=16; for(const d of last2.dots){const q=Math.hypot(d.x-x,d.y-y); if(q<bd){bd=q;best=d;}}
+  if(best){const cur=st.O.lab[st.act],i=best.nums.indexOf(cur),nx=best.nums[(i+1)%best.nums.length]; setAct(st.O.lab.indexOf(nx));}
+};
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.key==='ArrowRight'){go(st.k+1);e.preventDefault();} else if(e.key==='ArrowLeft'){go(st.k-1);e.preventDefault();}
+  else if(e.key==='ArrowDown'){setAct(st.act+1);e.preventDefault();} else if(e.key==='ArrowUp'){setAct(st.act-1);e.preventDefault();}
+});
+window.addEventListener('resize',draw);
+// pocetno stanje iz adrese, npr. #obj=z1&k=5&f=0.5&act=3
+(()=>{const h=new URLSearchParams(location.hash.slice(1)), o=h.get('obj');
+  if(h.get('base'))st.base=+h.get('base')===2?2:1;
+  resetObj(SIMPLE[o]||ZAD[o]?o:'tacka');
+  if(h.get('step'))st.k=[0,3,stepList().length-1][clamp(+h.get('step'),1,3)-1];   // stari linkovi: 1,2,3 ravni
+  if(h.get('k'))st.k=clamp(+h.get('k')-1,0,stepList().length-1);
+  if(h.get('f'))st.f=clamp(+h.get('f')); if(h.get('act'))st.act=clamp(+h.get('act')-1,0,st.O.pts.length-1);
+  if(h.get('yaw'))st.yaw=+h.get('yaw'); if(h.get('pitch'))st.pitch=+h.get('pitch');
+  if(h.get('list'))st.list=true; if(h.get('xf'))st.xf=+h.get('xf');
+  if(h.get('quiz')&&quizPlane()){st.quiz.on=true;(h.get('done')||'').split(',').filter(Boolean).forEach(v=>st.quiz.done.add(+v-1));}
+  if(h.get('pre')){ui();$('bPar').click();$('bPerp').click();}
+})();
+ui();
+</script>
+</body>
+</html>
