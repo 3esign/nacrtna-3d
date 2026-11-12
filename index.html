@@ -2,7 +2,8 @@
 <html lang="sr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
 <title>Transformacija: 3D i crtež uporedo · nacrtna geometrija</title>
 <meta name="description" content="Interaktivno učenje transformacije (uvođenja novih ravni projekcije) u nacrtnoj geometriji: 3D prostor i crtež uporedo, korak po korak.">
 <meta name="author" content="dr Poturak Semir">
@@ -51,7 +52,46 @@
   .quiz.on{display:block}
   #gAct button{padding:2px 7px;font-size:12.5px;min-width:28px}
   b.z{color:var(--z)} b.s{color:var(--s)}
+  #mNav{display:none}
+  html{-webkit-text-size-adjust:100%} button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  #c2{touch-action:manipulation}
   @media(max-width:900px){main,.bottom{grid-template-columns:1fr}canvas{height:46vh}}
+  @media(pointer:coarse){
+    button{min-height:38px} #gAct button{min-height:36px;min-width:36px;padding:4px 9px;font-size:14px}
+    input[type=range]{height:30px}
+  }
+  /* telefon, uspravno: koraci → objašnjenje → 3D → crtež → klizači; navigacija prikovana dole */
+  @media(max-width:700px){
+    body{display:flex;flex-direction:column;padding-bottom:calc(58px + env(safe-area-inset-bottom))}
+    header{padding:6px 10px;gap:6px;order:0} h1{font-size:15px;width:100%;margin:0}
+    header .grp,.steps{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    header .grp::-webkit-scrollbar,.steps::-webkit-scrollbar{display:none}
+    header #gZad{overflow:visible;max-width:none}
+    header button,.steps button,header .grp>span{flex:none;white-space:nowrap}
+    .steps{order:1;padding:6px 10px} .steps .nav{display:none}
+    main,.bottom{display:contents}
+    .pane,.card{margin:8px 8px 0}
+    .bottom .card:first-child{order:2} main .pane:first-child{order:3} main .pane:last-child{order:4} .bottom .card:last-child{order:5}
+    footer{order:6}
+    canvas{height:44vh;height:44svh;min-height:260px} #c2{height:62vh;height:62svh;min-height:320px}
+    .pane h2{font-size:11px;left:10px;top:6px}
+    .card{padding:10px 12px} .sl{grid-template-columns:104px 1fr 40px}
+    #list{flex-direction:column}
+    #mNav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:5;gap:8px;align-items:center;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid var(--line);box-shadow:0 -2px 10px rgba(15,23,42,.06)}
+    #mNav button{min-height:42px;padding:6px 14px;font-weight:700;flex:none}
+    #mNav div{flex:1;text-align:center;font-weight:600;font-size:13.5px;line-height:1.2;min-width:0}
+    #mNav small{display:block;font-weight:400;color:var(--mut);font-size:11.5px}
+  }
+  /* telefon, položeno: 3D i crtež ostaju uporedo */
+  @media(max-height:520px) and (orientation:landscape){
+    main{grid-template-columns:1fr 1fr;padding:6px 10px} canvas{height:68vh;height:68svh;min-height:0}
+    h1{display:none}
+    header,.steps,header .grp{flex-wrap:nowrap;scrollbar-width:none}
+    header,.steps{padding:4px 10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    header::-webkit-scrollbar,.steps::-webkit-scrollbar{display:none}
+    header .grp,header button,.steps button,header .grp>span{flex:none;white-space:nowrap}
+    header button,.steps button{min-height:34px}
+  }
 </style>
 </head>
 <body>
@@ -99,6 +139,7 @@
     <p class="note" style="margin:8px 0 0">Tastatura: ← → korak, ↑ ↓ tačka. Nova ravan se obara od predmeta, oko svoje ose; π1 naniže oko 1x2. Isprekidano = zaklonjena ivica.</p>
   </div>
 </div>
+<nav id="mNav"><button data-d="-1">◀ Nazad</button><div id="mLab"></div><button class="go" data-d="1">Dalje ▶</button></nav>
 <footer style="padding:10px 14px;color:#64748b;font-size:12.5px;text-align:center">© 2026 dr Poturak Semir · <a href="https://github.com/3esign/nacrtna-3d" style="color:inherit">izvorni kod</a> · licenca MIT</footer>
 
 <script>
@@ -558,6 +599,7 @@ function info(){
   }
 }
 
+const TOUCH=window.matchMedia&&matchMedia('(pointer:coarse)').matches;
 function ui(){
   const O=st.O, sl=stepList(), task=!!O.task;
   document.querySelectorAll('#gObj button').forEach(b=>b.classList.toggle('on',b.dataset.obj===O.name));
@@ -566,6 +608,9 @@ function ui(){
   $('gStep').innerHTML=`<button class="nav" data-d="-1" ${st.k===0?'disabled':''}>◀ Nazad</button>`+
     sl.map((id,i)=>`<button class="st ${i===st.k?'on':''} ${/3$/.test(id)&&id!=='osa3'||id==='osa3'?'g3':/4$/.test(id)?'g4':''}" data-k="${i}">${i+1} · ${nm[id]}</button>`).join('')+
     `<button class="nav go" data-d="1" ${st.k===sl.length-1?'disabled':''}>Dalje ▶</button>`;
+  $('mLab').innerHTML=`${nm[sl[st.k]]}<small>korak ${st.k+1} od ${sl.length}${st.k>=1&&st.k<=4?' · π3':st.k>4?' · π4':''}</small>`;
+  $('mNav').firstElementChild.disabled=st.k===0; $('mNav').lastElementChild.disabled=st.k===sl.length-1;
+  if(st.k!==ui.k){ui.k=st.k; const b=$('gStep').querySelector('.on'), g=$('gStep'); if(b&&g.scrollWidth>g.clientWidth)g.scrollLeft=b.offsetLeft-(g.clientWidth-b.offsetWidth)/2;}
   const set=(s,o,v,t)=>{$(s).value=v;$(o).textContent=t;};
   set('sF','oF',st.f,Math.round(st.f*100)+'%'); set('sX','oX',st.off[0],st.off[0].toFixed(1)); set('sY','oY',st.off[1],st.off[1].toFixed(1)); set('sZ','oZ',st.off[2],st.off[2].toFixed(1));
   let td=st.S.th/RAD; while(td>180)td-=180; while(td<-90)td+=180; const pd=st.S.ps/RAD;
@@ -577,7 +622,7 @@ function ui(){
   $('gAct').innerHTML=O.pts.length>1?'<span>Prati tačku</span>'+O.lab.map((l,i)=>`<button data-a="${i}" class="${i===st.act?'on':''}" ${st.quiz.on&&st.quiz.done.has(i)?'style="border-color:#15803d;color:'+(i===st.act?'#fff':'#15803d')+'"':''}>${l}</button>`).join(''):'';
   $('bFold').textContent=st.f>0.5?'◀ Vrati u prostor':'▶ Obori ravni u crtež';
   const L=$('list'); L.classList.toggle('on',task&&st.list); $('bList').classList.toggle('on',task&&st.list);
-  $('h3d').textContent=task&&st.list?'List sa zadatkom':'3D prostor · vuci mišem, točkić zumira';
+  $('h3d').textContent=task&&st.list?'List sa zadatkom':TOUCH?'3D prostor · vuci prstom, dva prsta zumiraju':'3D prostor · vuci mišem, točkić zumira';
   if(task&&st.list&&L.dataset.for!==O.name){L.dataset.for=O.name;L.innerHTML=O.task.list.map(([src,cap])=>`<figure><img src="${src}" alt="${cap}"><figcaption>${cap}</figcaption></figure>`).join('');}
   draw();
 }
@@ -600,7 +645,7 @@ function quizClick(X,Z){
   const qp=quizPlane(), kp=keyPts(st.act), tgt=qp===3?kp.p3:kp.p4, foot=qp===3?kp.Ff:kp.G, a=qp===3?kp.a3:kp.a4;
   const axd=[a[1][0]-a[0][0],a[1][1]-a[0][1]], D=Math.hypot(tgt[0]-foot[0],tgt[1]-foot[1]);
   const nr=D>1e-6?[(tgt[0]-foot[0])/D,(tgt[1]-foot[1])/D]:[-axd[1],axd[0]];
-  const tol=Math.max(.2,11/last2.S2), err=[X-tgt[0],Z-tgt[1]], ea=err[0]*axd[0]+err[1]*axd[1], dc=(X-foot[0])*nr[0]+(Z-foot[1])*nr[1];
+  const tol=Math.max(.2,(TOUCH?20:11)/last2.S2), err=[X-tgt[0],Z-tgt[1]], ea=err[0]*axd[0]+err[1]*axd[1], dc=(X-foot[0])*nr[0]+(Z-foot[1])*nr[1];
   const n=st.O.lab[st.act], K=st.S.base, src=qp===3?`${n}${PR(3-K)} do ose 1x2`:`${n}${PR(K)} do ose ${K}x3`, axn=qp===3?K+'x3':'3x4';
   if(Math.hypot(...err)<tol){
     st.quiz.done.add(st.act); st.quiz.miss=null;
@@ -619,6 +664,7 @@ function quizClick(X,Z){
 $('gZad').innerHTML=Object.keys(ZAD).map(k=>`<button data-obj="${k}" title="${ZAD[k].ime}">${ZAD[k].ime}</button>`).join('');
 $('gObj').onclick=e=>{const o=e.target.dataset.obj; if(o){resetObj(o);st.f=0;ui();}};
 $('gBase').onclick=e=>{const b=+e.target.dataset.base; if(b&&!st.O.task){st.base=b;resetObj(st.O.name);ui();}};
+$('mNav').onclick=e=>{const t=e.target.closest('button'); if(t)go(st.k+ +t.dataset.d);};
 $('gStep').onclick=e=>{const t=e.target.closest('button'); if(!t)return; if(t.dataset.k!==undefined)go(+t.dataset.k); else if(t.dataset.d)go(st.k+ +t.dataset.d);};
 $('gAct').onclick=e=>{const a=e.target.dataset.a; if(a!==undefined)setAct(+a);};
 $('bFold').onclick=()=>animate(st.f>0.5?0:1);
@@ -646,17 +692,21 @@ $('bPerp').onclick=()=>{ // osa 3x4 upravna na trecu projekciju duzi
   st.S.B=[cen[0]+n4[0]*(m+2),cen[1]+n4[1]*(m+2)]; st.box=null; st.cam=null; ui();
 };
 // orbit
-(()=>{const c=$('c3'); let d=null;
-  c.onpointerdown=e=>{d=[e.clientX,e.clientY];c.setPointerCapture(e.pointerId);c.style.cursor='grabbing';};
-  c.onpointermove=e=>{if(!d)return; st.yaw+=(e.clientX-d[0])*.008; st.pitch=clamp(st.pitch+(e.clientY-d[1])*.008,-.3,1.5); d=[e.clientX,e.clientY]; draw();};
-  c.onpointerup=c.onpointercancel=()=>{d=null;c.style.cursor='grab';};
+(()=>{const c=$('c3'), P=new Map(); let pd=0;
+  const gap=()=>{const [p,q]=[...P.values()];return Math.hypot(p[0]-q[0],p[1]-q[1]);};
+  c.onpointerdown=e=>{P.set(e.pointerId,[e.clientX,e.clientY]);try{c.setPointerCapture(e.pointerId);}catch(_){} if(P.size===2)pd=gap(); c.style.cursor='grabbing';};
+  c.onpointermove=e=>{const o=P.get(e.pointerId); if(!o)return; P.set(e.pointerId,[e.clientX,e.clientY]);
+    if(P.size===1){st.yaw+=(e.clientX-o[0])*.008; st.pitch=clamp(st.pitch+(e.clientY-o[1])*.008,-.3,1.5);}
+    else if(P.size===2){const g=gap(); if(pd>0&&g>0)st.zoom=clamp(st.zoom*g/pd,.4,5); pd=g;}
+    draw();};
+  c.onpointerup=c.onpointercancel=e=>{P.delete(e.pointerId);pd=0;if(!P.size)c.style.cursor='grab';};
   c.addEventListener('wheel',e=>{e.preventDefault();st.zoom=clamp(st.zoom*(e.deltaY<0?1.1:.9),.4,5);draw();},{passive:false});
 })();
 // crtez: klik bira tacku, a u vezbi postavlja novu projekciju
 $('c2').onclick=e=>{
   if(!last2)return; const r=$('c2').getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
   if(st.quiz.on&&quizPlane()){const w=last2.toW(x,y);quizClick(w[0],w[1]);return;}
-  let best=null,bd=16; for(const d of last2.dots){const q=Math.hypot(d.x-x,d.y-y); if(q<bd){bd=q;best=d;}}
+  let best=null,bd=TOUCH?28:16; for(const d of last2.dots){const q=Math.hypot(d.x-x,d.y-y); if(q<bd){bd=q;best=d;}}
   if(best){const cur=st.O.lab[st.act],i=best.nums.indexOf(cur),nx=best.nums[(i+1)%best.nums.length]; setAct(st.O.lab.indexOf(nx));}
 };
 window.addEventListener('keydown',e=>{
